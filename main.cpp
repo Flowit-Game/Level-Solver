@@ -121,6 +121,9 @@ struct Board {
                         case 'F':
                             std::cout << "O";
                             break;
+                        case 'B':
+                            std::cout << "▲";
+                            break;
                         default:
                             std::cout << "ERROR";
                             break;
@@ -200,6 +203,21 @@ struct Board {
                 flood(row, col + 1, from, to);
                 flood(row, col - 1, from, to);
             }
+        } else if (field.modifier == 'B') {
+            char color = field.color;
+            for (size_t dr = 0; dr < 3; dr++) {
+                for (size_t dc = 0; dc < 3; dc++) {
+                    if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
+                        Field &f = fields[row - 1 + dr][col - 1 + dc];
+                        if (f.modifier != 'X') {
+                            f.modifier = color;
+                            f.color = color;
+                        }
+                    }
+                }
+            }
+        } else {
+            std::cout<<"Unknown modifier"<<std::endl;
         }
     }
 
