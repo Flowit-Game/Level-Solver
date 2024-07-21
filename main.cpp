@@ -6,6 +6,7 @@
 
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
+constexpr size_t maxSteps = 30;
 
 struct Field {
     private:
@@ -58,7 +59,7 @@ struct Move {
 
 struct Board {
     Field fields[rows][cols] = {};
-    Move moveSequence[50];
+    Move moveSequence[maxSteps];
     size_t moves = 0;
 
     uint64_t hash() {
@@ -292,6 +293,10 @@ void skipWhitespace(std::string &xml, size_t &pos) {
 }
 
 void consume(char c, std::string &xml, size_t &pos) {
+    if (pos >= xml.length()) {
+        std::cout<< "EOF" << std::endl;
+        exit(1);
+    }
     if (xml[pos] != c) {
         std::cout<< "Expected " << c << std::endl;
         exit(1);
@@ -356,7 +361,8 @@ Board parseBoard(std::string color, std::string modifier) {
     }
     return initialBoard;
 }
-Board solve(Board initialBoard) {
+
+Board solve(size_t levelNr, Board initialBoard) {
     std::vector<Board> queueThis;
     std::vector<Board> queueNext;
     std::unordered_set<uint64_t> seen;
@@ -391,9 +397,12 @@ Board solve(Board initialBoard) {
             queueNext.clear();
             steps++;
 
-            if (steps > 10) {
-                std::cout<<"\r\033[K"<<"Calculating solutions with "
+            if (steps > 5) {
+                std::cout<<"\r\033[K"<<"Calculating solutions for "<<levelNr<<", currently at "
                         <<steps<<" steps. Queue length: "<<queueThis.size()<<std::flush;
+            }
+            if (steps >= maxSteps) {
+                return {};
             }
         }
     }
@@ -415,11 +424,10 @@ int main() {
 
         Board board = parseBoard(color, modifier);
 
-        Board solvedBoard = solve(board);
+        Board solvedBoard = solve(levelNr, board);
         if (!solvedBoard.isSolved()) {
-            std::cout<<"Unable to solve"<<std::endl;
+            std::cout<<"Unable to solve "<<levelNr<<std::endl;
             board.print();
-            return 1;
         } else {
             std::cout<<"\r\033[K";
 
