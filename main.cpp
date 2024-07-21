@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_set>
 #include <fstream>
+#include "MurmurHash64.hpp"
 
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
@@ -35,6 +36,10 @@ struct Board {
     Field fields[rows][cols] = {};
     std::pair<char, char> moveSequence[50];
     size_t moves = 0;
+
+    uint64_t hash() {
+        return MurmurHash64(&fields, sizeof(fields));
+    }
 
     std::string toString() {
         std::string description("", rows * (cols + 1) * 2 + 1);
@@ -327,7 +332,7 @@ Board parseBoard(std::string color, std::string modifier) {
 Board solve(Board initialBoard) {
     std::vector<Board> queueThis;
     std::vector<Board> queueNext;
-    std::unordered_set<std::string> seen;
+    std::unordered_set<uint64_t> seen;
     queueThis.push_back(initialBoard);
     size_t steps = 0;
 
@@ -345,7 +350,7 @@ Board solve(Board initialBoard) {
                 if (newBoard.isSolved()) {
                     return newBoard;
                 } else {
-                    std::string code = newBoard.toString();
+                    uint64_t code = newBoard.hash();
                     if (!seen.contains(code)) {
                         queueNext.push_back(newBoard);
                         seen.emplace(code);
