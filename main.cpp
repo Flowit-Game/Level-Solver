@@ -218,7 +218,6 @@ struct Board {
                         Field &f = fields[row - 1 + dr][col - 1 + dc];
                         if (f.modifier != 'X') {
                             f.modifier = color;
-                            f.color = color;
                         }
                     }
                 }
