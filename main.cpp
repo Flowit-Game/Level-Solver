@@ -32,9 +32,14 @@ struct Field {
     }
 };
 
+struct Move {
+    char row : 4;
+    char col : 4;
+};
+
 struct Board {
     Field fields[rows][cols] = {};
-    std::pair<char, char> moveSequence[50];
+    Move moveSequence[50];
     size_t moves = 0;
 
     uint64_t hash() {
@@ -186,7 +191,8 @@ struct Board {
     }
 
     void click(size_t row, size_t col) {
-        moveSequence[moves] = std::make_pair(row, col);
+        moveSequence[moves].col = col;
+        moveSequence[moves].row = row;
         moves++;
 
         Field &field = fields[row][col];
@@ -398,8 +404,8 @@ int main() {
 
             std::string sequence = "";
             for (size_t i = 0; i < solvedBoard.moves; i++) {
-                sequence += ('A' + solvedBoard.moveSequence[i].second);
-                sequence += std::to_string(solvedBoard.moveSequence[i].first + 1);
+                sequence += ('A' + solvedBoard.moveSequence[i].col);
+                sequence += std::to_string(solvedBoard.moveSequence[i].row + 1);
                 if (i != solvedBoard.moves - 1) {
                     sequence += ",";
                 }
