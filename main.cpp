@@ -107,15 +107,19 @@ struct Board {
                             std::cout << "\033[30m⚫";
                             break;
                         case 'D':
+                        case 's':
                             std::cout << "↓";
                             break;
                         case 'L':
+                        case 'a':
                             std::cout << "←";
                             break;
                         case 'R':
+                        case 'x':
                             std::cout << "→";
                             break;
                         case 'U':
+                        case 'w':
                             std::cout << "↑";
                             break;
                         case 'F':
@@ -177,7 +181,7 @@ struct Board {
         moveSequence[moves] = std::make_pair(row, col);
         moves++;
 
-        Field field = fields[row][col];
+        Field &field = fields[row][col];
         if (field.modifier == 'U') {
             fill(-1, 0, row, col, field.color);
         } else if (field.modifier == 'D') {
@@ -216,6 +220,18 @@ struct Board {
                     }
                 }
             }
+        } else if (field.modifier == 'w') {
+            fill(-1, 0, row, col, field.color);
+            field.modifier = 'x';
+        } else if (field.modifier == 's') {
+            fill(1, 0, row, col, field.color);
+            field.modifier = 'a';
+        } else if (field.modifier == 'a') {
+            fill(0, -1, row, col, field.color);
+            field.modifier = 'w';
+        } else if (field.modifier == 'x') {
+            fill(0, 1, row, col, field.color);
+            field.modifier = 's';
         } else {
             std::cout<<"Unknown modifier"<<std::endl;
         }
