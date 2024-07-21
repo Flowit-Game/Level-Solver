@@ -8,23 +8,42 @@ constexpr size_t rows = 8;
 constexpr size_t cols = 6;
 
 struct Field {
+    private:
     char color;
     char modifier;
 
+    public:
     [[nodiscard]] bool isClickable() const {
-        return modifier == 'L' || modifier == 'R' || modifier == 'U' || modifier == 'D'
-            || modifier == 'w' || modifier == 'x' || modifier == 'a' || modifier == 's'
-            || modifier == 'F' || modifier == 'B';
+        char m = getModifier();
+        return m == 'L' || m == 'R' || m == 'U' || m == 'D'
+            || m == 'w' || m == 'x' || m == 'a' || m == 's'
+            || m == 'F' || m == 'B';
     }
 
     [[nodiscard]] bool isCorrect() const {
-        if (!isColor(color)) {
+        if (!isColor(getColor())) {
             return true;
-        } else if (isColor(modifier)) {
+        } else if (isColor(getModifier())) {
             return modifier == color;
         } else {
-            return modifier != '0';
+            return getModifier() != '0';
         }
+    }
+
+    [[nodiscard]] char getModifier() const {
+        return modifier;
+    }
+
+    void setModifier(char modifier_) {
+        modifier = modifier_;
+    }
+
+    [[nodiscard]] char getColor() const {
+        return color;
+    }
+
+    void setColor(char color_) {
+        color = color_;
     }
 
     static bool isColor(char c) {
@@ -50,8 +69,8 @@ struct Board {
         std::string description("", rows * (cols + 1) * 2 + 1);
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
-                description[row * (cols + 1) + col] = fields[row][col].color;
-                description[rows * (cols + 1) + 1 + row * (cols + 1) + col] = fields[row][col].modifier;
+                description[row * (cols + 1) + col] = fields[row][col].getColor();
+                description[rows * (cols + 1) + 1 + row * (cols + 1) + col] = fields[row][col].getModifier();
             }
             description[row * (cols + 1) + cols] = '\n';
             description[rows * (cols + 1) + 1 + row * (cols + 1) + cols] = '\n';
@@ -64,11 +83,11 @@ struct Board {
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
                 std::cout<<"\033[0m";
-                if (fields[row][col].modifier == 'X') {
+                if (fields[row][col].getModifier() == 'X') {
                     std::cout<<"\033[40m   ";
                     continue;
                 }
-                switch (fields[row][col].color) {
+                switch (fields[row][col].getColor()) {
                     case 'r':
                         std::cout<<"\033[41m";
                         break;
@@ -89,11 +108,11 @@ struct Board {
                         break;
                 }
                 std::cout<<" ";
-                if (Field::isColor(fields[row][col].modifier)
-                        && fields[row][col].modifier == fields[row][col].color) {
+                if (Field::isColor(fields[row][col].getModifier())
+                        && fields[row][col].getModifier() == fields[row][col].getColor()) {
                     std::cout<<"□";
-                } else if (Field::isColor(fields[row][col].modifier)) {
-                    switch (fields[row][col].modifier) {
+                } else if (Field::isColor(fields[row][col].getModifier())) {
+                    switch (fields[row][col].getModifier()) {
                         case 'r':
                             std::cout<<"\033[31m";
                             break;
@@ -115,7 +134,7 @@ struct Board {
                     }
                     std::cout << "■";
                 } else {
-                    switch (fields[row][col].modifier) {
+                    switch (fields[row][col].getModifier()) {
                         case '0':
                             std::cout << "\033[30m■";
                             break;
@@ -158,17 +177,17 @@ struct Board {
         col += rc;
         char from;
         char to;
-        if (fields[row][col].modifier == color) { // Un-fill
+        if (fields[row][col].getModifier() == color) { // Un-fill
             from = color;
             to = '0';
-        } else if (fields[row][col].modifier == '0') { // Fill
+        } else if (fields[row][col].getModifier() == '0') { // Fill
             from = '0';
             to = color;
         } else {
             return;
         }
-        while (fields[row][col].modifier == from) {
-            fields[row][col].modifier = to;
+        while (fields[row][col].getModifier() == from) {
+            fields[row][col].setModifier(to);
             row += dr;
             col += rc;
         }
@@ -178,8 +197,8 @@ struct Board {
         if (row >= rows || col >= cols) {
             return false;
         }
-        if (fields[row][col].modifier == from) {
-            fields[row][col].modifier = to;
+        if (fields[row][col].getModifier() == from) {
+            fields[row][col].setModifier(to);
             flood(row + 1, col, from, to);
             flood(row - 1, col, from, to);
             flood(row, col + 1, from, to);
@@ -196,17 +215,17 @@ struct Board {
         moves++;
 
         Field &field = fields[row][col];
-        if (field.modifier == 'U') {
-            fill(-1, 0, row, col, field.color);
-        } else if (field.modifier == 'D') {
-            fill(1, 0, row, col, field.color);
-        } else if (field.modifier == 'L') {
-            fill(0, -1, row, col, field.color);
-        } else if (field.modifier == 'R') {
-            fill(0, 1, row, col, field.color);
-        } else if (field.modifier == 'F') {
+        if (field.getModifier() == 'U') {
+            fill(-1, 0, row, col, field.getColor());
+        } else if (field.getModifier() == 'D') {
+            fill(1, 0, row, col, field.getColor());
+        } else if (field.getModifier() == 'L') {
+            fill(0, -1, row, col, field.getColor());
+        } else if (field.getModifier() == 'R') {
+            fill(0, 1, row, col, field.getColor());
+        } else if (field.getModifier() == 'F') {
             char from = '0';
-            char to = field.color;
+            char to = field.getColor();
             bool somethingFilled = false;
             somethingFilled |= flood(row + 1, col, from, to);
             somethingFilled |= flood(row - 1, col, from, to);
@@ -214,37 +233,37 @@ struct Board {
             somethingFilled |= flood(row, col - 1, from, to);
 
             if (!somethingFilled) {
-                from = field.color;
+                from = field.getColor();
                 to = '0';
                 flood(row + 1, col, from, to);
                 flood(row - 1, col, from, to);
                 flood(row, col + 1, from, to);
                 flood(row, col - 1, from, to);
             }
-        } else if (field.modifier == 'B') {
-            char color = field.color;
+        } else if (field.getModifier() == 'B') {
+            char color = field.getColor();
             for (size_t dr = 0; dr < 3; dr++) {
                 for (size_t dc = 0; dc < 3; dc++) {
                     if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
                         Field &f = fields[row - 1 + dr][col - 1 + dc];
-                        if (f.modifier != 'X') {
-                            f.modifier = color;
+                        if (f.getModifier() != 'X') {
+                            f.setModifier(color);
                         }
                     }
                 }
             }
-        } else if (field.modifier == 'w') {
-            fill(-1, 0, row, col, field.color);
-            field.modifier = 'x';
-        } else if (field.modifier == 's') {
-            fill(1, 0, row, col, field.color);
-            field.modifier = 'a';
-        } else if (field.modifier == 'a') {
-            fill(0, -1, row, col, field.color);
-            field.modifier = 'w';
-        } else if (field.modifier == 'x') {
-            fill(0, 1, row, col, field.color);
-            field.modifier = 's';
+        } else if (field.getModifier() == 'w') {
+            fill(-1, 0, row, col, field.getColor());
+            field.setModifier('x');
+        } else if (field.getModifier() == 's') {
+            fill(1, 0, row, col, field.getColor());
+            field.setModifier('a');
+        } else if (field.getModifier() == 'a') {
+            fill(0, -1, row, col, field.getColor());
+            field.setModifier('w');
+        } else if (field.getModifier() == 'x') {
+            fill(0, 1, row, col, field.getColor());
+            field.setModifier('s');
         } else {
             std::cout<<"Unknown modifier"<<std::endl;
         }
@@ -325,12 +344,14 @@ Board parseBoard(std::string color, std::string modifier) {
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++) {
             if (smallBoard && (row >= 6 || col >= 5)) {
-                initialBoard.fields[row][col] = {'0', 'X'};
+                initialBoard.fields[row][col].setColor('0');
+                initialBoard.fields[row][col].setModifier('X');
                 continue;
             }
             char c = color[row * (smallBoard ? 5 : 6) + col];
             char m = modifier[row * (smallBoard ? 5 : 6) + col];
-            initialBoard.fields[row][col] = {c, m};
+            initialBoard.fields[row][col].setColor(c);
+            initialBoard.fields[row][col].setModifier(m);
         }
     }
     return initialBoard;
