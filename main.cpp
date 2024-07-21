@@ -79,7 +79,10 @@ struct Board {
                         break;
                 }
                 std::cout<<" ";
-                if (Field::isColor(fields[row][col].modifier)) {
+                if (Field::isColor(fields[row][col].modifier)
+                        && fields[row][col].modifier == fields[row][col].color) {
+                    std::cout<<"□";
+                } else if (Field::isColor(fields[row][col].modifier)) {
                     switch (fields[row][col].modifier) {
                         case 'r':
                             std::cout<<"\033[31m";
@@ -100,11 +103,11 @@ struct Board {
                             std::cout << "ERROR";
                             break;
                     }
-                    std::cout << "⚫";
+                    std::cout << "■";
                 } else {
                     switch (fields[row][col].modifier) {
                         case '0':
-                            std::cout << "\033[30m⚫";
+                            std::cout << "\033[30m■";
                             break;
                         case 'D':
                         case 's':
@@ -123,7 +126,7 @@ struct Board {
                             std::cout << "↑";
                             break;
                         case 'F':
-                            std::cout << "O";
+                            std::cout << "○";
                             break;
                         case 'B':
                             std::cout << "▲";
