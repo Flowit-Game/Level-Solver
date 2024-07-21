@@ -37,15 +37,100 @@ struct Board {
     size_t moves = 0;
 
     std::string toString() {
-        std::string description("", rows * cols * 2 + 1);
+        std::string description("", rows * (cols + 1) * 2 + 1);
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
-                description[row * cols + col] = fields[row][col].color;
-                description[rows * cols + 1 + row * cols + col] = fields[row][col].modifier;
+                description[row * (cols + 1) + col] = fields[row][col].color;
+                description[rows * (cols + 1) + 1 + row * (cols + 1) + col] = fields[row][col].modifier;
             }
+            description[row * (cols + 1) + cols] = '\n';
+            description[rows * (cols + 1) + 1 + row * (cols + 1) + cols] = '\n';
         }
-        description[rows * cols + 1] = '\n';
+        description[rows * (cols + 1)] = '\n';
         return description;
+    }
+
+    void print() {
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                std::cout<<"\033[0m";
+                if (fields[row][col].modifier == 'X') {
+                    std::cout<<"\033[40m   ";
+                    continue;
+                }
+                switch (fields[row][col].color) {
+                    case 'r':
+                        std::cout<<"\033[41m";
+                        break;
+                    case 'g':
+                        std::cout<<"\033[42m";
+                        break;
+                    case 'b':
+                        std::cout<<"\033[44m";
+                        break;
+                    case 'o':
+                        std::cout<<"\033[43m";
+                        break;
+                    case 'd':
+                        std::cout<<"\033[45m";
+                        break;
+                    default:
+                        std::cout<<"ERROR";
+                        break;
+                }
+                std::cout<<" ";
+                if (Field::isColor(fields[row][col].modifier)) {
+                    switch (fields[row][col].modifier) {
+                        case 'r':
+                            std::cout<<"\033[31m";
+                            break;
+                        case 'g':
+                            std::cout<<"\033[32m";
+                            break;
+                        case 'b':
+                            std::cout<<"\033[34m";
+                            break;
+                        case 'o':
+                            std::cout<<"\033[33m";
+                            break;
+                        case 'd':
+                            std::cout<<"\033[35m";
+                            break;
+                        default:
+                            std::cout << "ERROR";
+                            break;
+                    }
+                    std::cout << "⚫";
+                } else {
+                    switch (fields[row][col].modifier) {
+                        case '0':
+                            std::cout << "\033[30m⚫";
+                            break;
+                        case 'D':
+                            std::cout << "↓";
+                            break;
+                        case 'L':
+                            std::cout << "←";
+                            break;
+                        case 'R':
+                            std::cout << "→";
+                            break;
+                        case 'U':
+                            std::cout << "↑";
+                            break;
+                        case 'F':
+                            std::cout << "O";
+                            break;
+                        default:
+                            std::cout << "ERROR";
+                            break;
+                    }
+                }
+                std::cout<<" ";
+                std::cout<<"\033[0m";
+            }
+            std::cout<<std::endl;
+        }
     }
 
     void fill(int dr, int rc, size_t row, size_t col, char color) {
@@ -128,6 +213,10 @@ struct Board {
         }
         return true;
     }
+
+    void click(const char *string) {
+        click(string[1] - '0' - 1, string[0] - 'A');
+    }
 };
 
 void skipWhitespace(std::string &xml, size_t &pos) {
@@ -183,34 +272,23 @@ std::tuple<size_t, std::string, std::string> parseXmlElement(std::string &xml, s
     return std::make_tuple(levelNr, color, modifier);
 }
 
-std::string solve(std::string color, std::string modifier) {
+Board parseBoard(std::string color, std::string modifier) {
     Board initialBoard;
-    if (color.length() == 5 * 6) {
-        for (size_t row = 0; row < 6; row++) {
-            for (size_t col = 0; col < 5; col++) {
-                char c = color[row * 5 + col];
-                char m = modifier[row * 5 + col];
-                initialBoard.fields[row][col] = {c, m };
+    bool smallBoard = color.length() == 5 * 6;
+    for (size_t row = 0; row < rows; row++) {
+        for (size_t col = 0; col < cols; col++) {
+            if (smallBoard && (row >= 6 || col >= 5)) {
+                initialBoard.fields[row][col] = {'0', 'X'};
+                continue;
             }
+            char c = color[row * (smallBoard ? 5 : 6) + col];
+            char m = modifier[row * (smallBoard ? 5 : 6) + col];
+            initialBoard.fields[row][col] = {c, m};
         }
-        for (size_t row = 6; row < rows; row++) {
-            for (size_t col = 5; col < cols; col++) {
-                initialBoard.fields[row][col] = { '0', 'X' };
-            }
-        }
-    } else if (color.length() == 6 * 8) {
-        for (size_t row = 0; row < rows; row++) {
-            for (size_t col = 0; col < cols; col++) {
-                char c = color[row * cols + col];
-                char m = modifier[row * cols + col];
-                initialBoard.fields[row][col] = {c, m };
-            }
-        }
-    } else {
-        std::cout<<"error: Unknown size"<<std::endl;
-        exit(1);
     }
-
+    return initialBoard;
+}
+std::string solve(Board initialBoard) {
     std::vector<Board> queueThis;
     std::vector<Board> queueNext;
     std::unordered_set<std::string> seen;
@@ -271,15 +349,19 @@ int main() {
     while (true) {
         auto [levelNr, color, modifier] = parseXmlElement(xml, pos);
         std::cout<<"Level "<<indexInFile<<" (id "<<levelNr<<")"<<std::endl;
-        std::cout<<color<<std::endl<<modifier<<std::endl;
 
-        std::string moveSequence = solve(color, modifier);
+        Board board = parseBoard(color, modifier);
+
+        std::string moveSequence = solve(board);
         if (moveSequence.empty()) {
             std::cout<<"Unable to solve"<<std::endl;
+            board.print();
             return 1;
         } else {
             std::cout<<"Solved: "<<moveSequence<<std::endl;
+            board.print();
         }
         indexInFile++;
+        std::cout<<std::endl;
     }
 }
