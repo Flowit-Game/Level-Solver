@@ -401,8 +401,9 @@ int main() {
             }
             std::cout<<"Solved with "<<solvedBoard.moves<<" moves: "<<sequence<<std::endl;
             board.print();
-            //std::cout<<"<level number=\""<<levelNr<<"\"\n"
-            //         <<"        solution=\""<<sequence<<"\"";
+            //std::string levelnr = "<level number=\""+std::to_string(levelNr)+"\"";
+            //std::string replacement = "        solution=\""+sequence+"\"";
+            //std::cout<<"sed -i 's/"<<levelnr<<"/"<<levelnr<<"\\n"<<replacement<<"/' levels.xml";
         }
         indexInFile++;
         std::cout<<std::endl;
