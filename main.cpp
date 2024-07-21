@@ -325,7 +325,7 @@ Board parseBoard(std::string color, std::string modifier) {
     }
     return initialBoard;
 }
-std::string solve(Board initialBoard) {
+Board solve(Board initialBoard) {
     std::vector<Board> queueThis;
     std::vector<Board> queueNext;
     std::unordered_set<std::string> seen;
@@ -344,12 +344,7 @@ std::string solve(Board initialBoard) {
                 Board newBoard = board;
                 newBoard.click(row, col);
                 if (newBoard.isSolved()) {
-                    std::string sequence = "";
-                    for (size_t i = 0; i < newBoard.moves; i++) {
-                        sequence += ('A' + newBoard.moveSequence[i].second);
-                        sequence += std::to_string(newBoard.moveSequence[i].first + 1) + ",";
-                    }
-                    return sequence;
+                    return newBoard;
                 } else {
                     std::string code = newBoard.toString();
                     if (!seen.contains(code)) {
@@ -366,12 +361,12 @@ std::string solve(Board initialBoard) {
             steps++;
 
             if (steps > 10) {
-                std::cout<<"Calculating solutions with "<<steps<<" steps."<<std::endl;
-                std::cout<<"Queue length: "<<queueThis.size()<<std::endl;
+                std::cout<<"\r\033[K"<<"Calculating solutions with "
+                        <<steps<<" steps. Queue length: "<<queueThis.size()<<std::flush;
             }
         }
     }
-    return "";
+    return {};
 }
 
 int main() {
@@ -389,14 +384,26 @@ int main() {
 
         Board board = parseBoard(color, modifier);
 
-        std::string moveSequence = solve(board);
-        if (moveSequence.empty()) {
+        Board solvedBoard = solve(board);
+        if (!solvedBoard.isSolved()) {
             std::cout<<"Unable to solve"<<std::endl;
             board.print();
             return 1;
         } else {
-            std::cout<<"Solved: "<<moveSequence<<std::endl;
+            std::cout<<"\r\033[K";
+
+            std::string sequence = "";
+            for (size_t i = 0; i < solvedBoard.moves; i++) {
+                sequence += ('A' + solvedBoard.moveSequence[i].second);
+                sequence += std::to_string(solvedBoard.moveSequence[i].first + 1);
+                if (i != solvedBoard.moves - 1) {
+                    sequence += ",";
+                }
+            }
+            std::cout<<"Solved with "<<solvedBoard.moves<<" moves: "<<sequence<<std::endl;
             board.print();
+            //std::cout<<"<level number=\""<<levelNr<<"\"\n"
+            //         <<"        solution=\""<<sequence<<"\"";
         }
         indexInFile++;
         std::cout<<std::endl;
