@@ -4,6 +4,7 @@
 #include "Board.hpp"
 #include "SimpleXml.hpp"
 #include "BfsSolver.hpp"
+#include "BranchBoundSolver.hpp"
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -24,23 +25,16 @@ int main(int argc, char** argv) {
         std::cout<<"Level "<<indexInFile<<" (id "<<levelNr<<")"<<std::endl;
         Board board = Board::from(color, modifier);
 
-        Board solvedBoard = solveBFS(levelNr, board);
+        //Board solvedBoard = solveBFS(levelNr, board);
+        Board solvedBoard = solveBranchAndBound(levelNr, board);
 
         if (!solvedBoard.isSolved()) {
-            std::cout<<"Unable to solveBFS "<<levelNr<<std::endl;
+            std::cout<<"Unable to solve "<<levelNr<<std::endl;
             board.print();
         } else {
             std::cout<<"\r\033[K";
-
-            std::string sequence = "";
-            for (size_t i = 0; i < solvedBoard.moveSequence.n; i++) {
-                sequence += ('A' + solvedBoard.moveSequence.moves[i].col);
-                sequence += std::to_string(solvedBoard.moveSequence.moves[i].row + 1);
-                if (i != solvedBoard.moveSequence.n - 1) {
-                    sequence += ",";
-                }
-            }
-            std::cout<<"Solved with "<<solvedBoard.moveSequence.n<<" moves: "<<sequence<<std::endl;
+            std::cout<<"Solved with "<<solvedBoard.moveSequence.n<<" moves: "
+                     <<solvedBoard.moveSequence.toString()<<std::endl;
             board.print();
             //std::string levelnr = "<level number=\""+std::to_string(levelNr)+"\"";
             //std::string replacement = "        solution=\""+sequence+"\"";

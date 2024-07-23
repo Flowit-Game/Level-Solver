@@ -11,8 +11,8 @@ constexpr size_t cols = 6;
 
 struct Field {
     private:
-        char color;
-        char modifier;
+        char color = 'g';
+        char modifier = '0';
 
     public:
         [[nodiscard]] bool isClickable() const {
@@ -61,6 +61,18 @@ struct Move {
 struct MoveSequence {
     Move moves[maxSteps];
     size_t n = 0;
+
+    std::string toString() {
+        std::string sequence = "";
+        for (size_t i = 0; i < n; i++) {
+            sequence += ('A' + moves[i].col);
+            sequence += std::to_string(moves[i].row + 1);
+            if (i != n - 1) {
+                sequence += ",";
+            }
+        }
+        return sequence;
+    }
 };
 
 struct Board {
