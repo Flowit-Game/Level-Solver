@@ -5,7 +5,7 @@
 #include <string>
 #include <iostream>
 
-constexpr size_t maxSteps = 50;
+constexpr size_t maxSteps = 30;
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
 
@@ -50,6 +50,10 @@ struct Field {
 
         static bool isColor(char c) {
             return c == 'r' || c == 'g' || c == 'b' || c == 'o' || c == 'd';
+        }
+
+        static size_t colorMPHF(char c) {
+            return c % 6;
         }
 };
 
@@ -99,6 +103,7 @@ struct Board {
 
     void print() {
         for (size_t row = 0; row < rows; row++) {
+            std::cout<<"# ";
             for (size_t col = 0; col < cols; col++) {
                 std::cout<<"\033[0m";
                 if (fields[row][col].getModifier() == 'X') {

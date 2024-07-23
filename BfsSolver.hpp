@@ -44,8 +44,8 @@ Board solveBFS(size_t levelNr, Board initialBoard) {
             steps++;
 
             if (steps > 5) {
-                std::cout<<"\r\033[K"<<"Calculating solutions for "<<levelNr<<", currently at "
-                         <<steps<<" steps. Queue length: "<<queueThis.size()<<std::flush;
+                std::cout<<"# Calculating solutions for "<<levelNr<<", currently at "
+                         <<steps<<" steps. Queue length: "<<queueThis.size()<<std::endl;
             }
             if (steps >= maxSteps) {
                 return {};

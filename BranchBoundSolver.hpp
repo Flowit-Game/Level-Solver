@@ -6,28 +6,60 @@
 #include <cassert>
 #include <unordered_map>
 
+size_t minStepsNeeded(const Board &board) {
+    bool needed[5] = { false, false, false, false, false };
+    size_t missing = 0;
+
+    for (size_t row = 0; row < rows; row++) {
+        for (size_t col = 0; col < cols; col++) {
+            const Field &field = board.fields[row][col];
+            if (field.isCorrect()) {
+                continue;
+            }
+            size_t mphf = Field::colorMPHF(field.getColor());
+            missing += needed[mphf] ? 0 : 1;
+            needed[mphf] = true;
+            if (Field::isColor(field.getModifier())) {
+                mphf = Field::colorMPHF(field.getModifier());
+                missing += needed[mphf] ? 0 : 1;
+                needed[mphf] = true;
+            }
+            if (missing == 5) {
+                return 5;
+            }
+        }
+    }
+    assert(missing <= 5);
+    return missing;
+}
+
 void branch(size_t levelNr, Board board, size_t &bound, Board &best, std::unordered_map<uint64_t, size_t> &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
     uint64_t hash = board.hash();
-    if (minimalMoves.contains(hash)) {
-        size_t m = minimalMoves.at(hash);
-        if (m <= board.moveSequence.n) {
+    auto existing = minimalMoves.find(hash);
+    if (existing == minimalMoves.end()) {
+        minimalMoves.emplace(hash, board.moveSequence.n);
+    } else {
+        if (existing->second <= board.moveSequence.n) {
             // Someone else already reached this state with fewer moves
             return; // Give up
         } else {
-            minimalMoves.at(hash) = board.moveSequence.n;
+            existing->second = board.moveSequence.n;
         }
-    } else {
-        minimalMoves.emplace(hash, board.moveSequence.n);
+    }
+
+    size_t stepsNeeded = minStepsNeeded(board);
+    if (board.moveSequence.n + stepsNeeded >= bound) {
+        return;
     }
 
     if (board.isSolved()) {
         if (board.moveSequence.n < bound) {
             bound = board.moveSequence.n;
-            std::cout<<"\r\033[K"<<"New bound for "<<levelNr<<": "
-                    <<bound<<" using "<<board.moveSequence.toString()<<std::endl;//flush;
+            std::cout<<"# New bound for "<<levelNr<<": "
+                     <<bound<<" using "<<board.moveSequence.toString()<<std::endl;
             best = board;
         }
         return;
