@@ -5,7 +5,7 @@
 #include <string>
 #include <iostream>
 
-constexpr size_t maxSteps = 30;
+constexpr size_t maxSteps = 50;
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
 
