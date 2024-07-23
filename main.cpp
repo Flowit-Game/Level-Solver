@@ -5,8 +5,13 @@
 #include "SimpleXml.hpp"
 #include "BfsSolver.hpp"
 
-int main() {
-    std::ifstream t("levels.xml");
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cout<<"Specify a path"<<std::endl;
+        exit(1);
+    }
+    std::cout<<argv[1]<<std::endl;
+    std::ifstream t(argv[1]);
     std::string xml((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
     size_t pos = 0;
     SimpleXml::consume("<?xml version=\"1.0\" encoding=\"utf-8\" ?>", xml, pos);

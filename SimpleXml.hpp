@@ -40,6 +40,14 @@ class SimpleXml {
             }
             consume('"', xml, pos);
             skipWhitespace(xml, pos);
+            if (xml[pos] == 's') {
+                consume("solution=\"", xml, pos);
+                while (xml[pos] != '"') {
+                    pos++;
+                }
+                pos++;
+                skipWhitespace(xml, pos);
+            }
             consume("color=\"", xml, pos);
             std::string color = "";
             while (xml[pos] != '"') {
