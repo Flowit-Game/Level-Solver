@@ -19,11 +19,6 @@ size_t minStepsNeeded(const Board &board) {
             size_t mphf = Field::colorMPHF(field.getColor());
             missing += needed[mphf] ? 0 : 1;
             needed[mphf] = true;
-            if (Field::isColor(field.getModifier())) {
-                mphf = Field::colorMPHF(field.getModifier());
-                missing += needed[mphf] ? 0 : 1;
-                needed[mphf] = true;
-            }
             if (missing == 5) {
                 return 5;
             }
