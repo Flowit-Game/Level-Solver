@@ -11,6 +11,13 @@ class SimpleXml {
             }
         }
 
+        static void skipToQuote(std::string &xml, size_t &pos) {
+            while (xml[pos] != '"') {
+                pos++;
+            }
+            pos++;
+        }
+
         static void consume(char c, std::string &xml, size_t &pos) {
             if (pos >= xml.length()) {
                 std::cout << "EOF" << std::endl;
@@ -42,10 +49,12 @@ class SimpleXml {
             skipWhitespace(xml, pos);
             if (xml[pos] == 's') {
                 consume("solution=\"", xml, pos);
-                while (xml[pos] != '"') {
-                    pos++;
-                }
-                pos++;
+                skipToQuote(xml, pos);
+                skipWhitespace(xml, pos);
+            }
+            if (xml[pos] == 'a') {
+                consume("author=\"", xml, pos);
+                skipToQuote(xml, pos);
                 skipWhitespace(xml, pos);
             }
             consume("color=\"", xml, pos);
