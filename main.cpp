@@ -57,10 +57,14 @@ struct Move {
     char col : 4;
 };
 
+struct MoveSequence {
+    Move moves[maxSteps];
+    size_t n = 0;
+};
+
 struct Board {
     Field fields[rows][cols] = {};
-    Move moveSequence[maxSteps];
-    size_t moves = 0;
+    MoveSequence moveSequence;
 
     uint64_t hash() {
         return MurmurHash64(&fields, sizeof(fields));
@@ -211,9 +215,9 @@ struct Board {
     }
 
     void click(size_t row, size_t col) {
-        moveSequence[moves].col = col;
-        moveSequence[moves].row = row;
-        moves++;
+        moveSequence.moves[moveSequence.n].col = col;
+        moveSequence.moves[moveSequence.n].row = row;
+        moveSequence.n++;
 
         Field &field = fields[row][col];
         if (field.getModifier() == 'U') {
@@ -363,15 +367,19 @@ Board parseBoard(std::string color, std::string modifier) {
 }
 
 Board solve(size_t levelNr, Board initialBoard) {
-    std::vector<Board> queueThis;
-    std::vector<Board> queueNext;
+    std::vector<MoveSequence> queueThis;
+    std::vector<MoveSequence> queueNext;
     std::unordered_set<uint64_t> seen;
-    queueThis.push_back(initialBoard);
+    queueThis.push_back(initialBoard.moveSequence);
     size_t steps = 0;
 
     while (!queueThis.empty()) {
-        Board board = queueThis.back();
+        MoveSequence sequence = queueThis.back();
         queueThis.pop_back();
+        Board board = initialBoard;
+        for (size_t i = 0; i < sequence.n; i++) {
+            board.click(sequence.moves[i].row, sequence.moves[i].col);
+        }
 
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
@@ -385,7 +393,7 @@ Board solve(size_t levelNr, Board initialBoard) {
                 } else {
                     uint64_t code = newBoard.hash();
                     if (!seen.contains(code)) {
-                        queueNext.push_back(newBoard);
+                        queueNext.push_back(newBoard.moveSequence);
                         seen.emplace(code);
                     }
                 }
@@ -432,14 +440,14 @@ int main() {
             std::cout<<"\r\033[K";
 
             std::string sequence = "";
-            for (size_t i = 0; i < solvedBoard.moves; i++) {
-                sequence += ('A' + solvedBoard.moveSequence[i].col);
-                sequence += std::to_string(solvedBoard.moveSequence[i].row + 1);
-                if (i != solvedBoard.moves - 1) {
+            for (size_t i = 0; i < solvedBoard.moveSequence.n; i++) {
+                sequence += ('A' + solvedBoard.moveSequence.moves[i].col);
+                sequence += std::to_string(solvedBoard.moveSequence.moves[i].row + 1);
+                if (i != solvedBoard.moveSequence.n - 1) {
                     sequence += ",";
                 }
             }
-            std::cout<<"Solved with "<<solvedBoard.moves<<" moves: "<<sequence<<std::endl;
+            std::cout<<"Solved with "<<solvedBoard.moveSequence.n<<" moves: "<<sequence<<std::endl;
             board.print();
             //std::string levelnr = "<level number=\""+std::to_string(levelNr)+"\"";
             //std::string replacement = "        solution=\""+sequence+"\"";
