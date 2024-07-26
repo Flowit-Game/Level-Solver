@@ -75,10 +75,15 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
     static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
-    minimalMoves.clear();
 
-    size_t bound = maxSteps;
-    Board best = {};
-    branch(levelNr, initialBoard, bound, best, minimalMoves);
-    return best;
+    for (size_t iterativeBound = 10; iterativeBound <= maxSteps; iterativeBound += 5) {
+        size_t bound = iterativeBound;
+        minimalMoves.clear();
+        Board best = {};
+        branch(levelNr, initialBoard, bound, best, minimalMoves);
+        if (best.isSolved()) {
+            return best;
+        }
+    }
+    return {};
 }
