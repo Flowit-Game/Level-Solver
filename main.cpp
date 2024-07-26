@@ -19,10 +19,15 @@ int main(int argc, char** argv) {
     SimpleXml::skipWhitespace(xml, pos);
     SimpleXml::consume("<levels>", xml, pos);
 
-    size_t indexInFile = 1;
+    size_t indexInFile = 0;
     while (true) {
-        auto [levelNr, color, modifier] = SimpleXml::parseBoardXml(xml, pos);
+        indexInFile++;
+        auto [levelNr, color, modifier, hasSolution] = SimpleXml::parseBoardXml(xml, pos);
         std::cout<<"# Level "<<indexInFile<<" (id "<<levelNr<<")"<<std::endl;
+        if (hasSolution) {
+            std::cout<<"# Has solution"<<std::endl;
+            //continue;
+        }
         Board board = Board::from(color, modifier);
 
         //Board solvedBoard = solveBFS(levelNr, board);
@@ -40,7 +45,6 @@ int main(int argc, char** argv) {
             std::string replacement = "        solution=\""+solvedBoard.moveSequence.toString()+"\"";
             std::cout<<"sed -i 's/"<<levelnr<<"/"<<levelnr<<"\\n"<<replacement<<"/' levels.xml";
         }
-        indexInFile++;
         std::cout<<std::endl;
     }
 }

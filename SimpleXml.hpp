@@ -36,7 +36,7 @@ class SimpleXml {
             }
         }
 
-        static std::tuple<size_t, std::string, std::string> parseBoardXml(std::string &xml, size_t &pos) {
+        static std::tuple<size_t, std::string, std::string, bool> parseBoardXml(std::string &xml, size_t &pos) {
             skipWhitespace(xml, pos);
             consume("<level number=\"", xml, pos);
             size_t levelNr = 0;
@@ -47,10 +47,12 @@ class SimpleXml {
             }
             consume('"', xml, pos);
             skipWhitespace(xml, pos);
+            bool hasSolution = false;
             if (xml[pos] == 's') {
                 consume("solution=\"", xml, pos);
                 skipToQuote(xml, pos);
                 skipWhitespace(xml, pos);
+                hasSolution = true;
             }
             if (xml[pos] == 'a') {
                 consume("author=\"", xml, pos);
@@ -76,6 +78,6 @@ class SimpleXml {
             pos++;
             skipWhitespace(xml, pos);
             consume("/>", xml, pos);
-            return std::make_tuple(levelNr, color, modifier);
+            return std::make_tuple(levelNr, color, modifier, hasSolution);
         }
 };

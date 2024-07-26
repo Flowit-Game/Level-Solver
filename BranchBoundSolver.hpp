@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Board.hpp"
 #include <vector>
 #include <unordered_set>
 #include <cassert>
 #include <unordered_map>
+#include "Board.hpp"
+#include "SimpleApproximateMap.hpp"
 
 size_t minStepsNeeded(const Board &board) {
     bool needed[5] = { false, false, false, false, false };
@@ -28,20 +29,20 @@ size_t minStepsNeeded(const Board &board) {
     return missing;
 }
 
-void branch(size_t levelNr, Board board, size_t &bound, Board &best, std::unordered_map<uint64_t, size_t> &minimalMoves) {
+void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleApproximateMap<uint64_t, size_t> &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
     uint64_t hash = board.hash();
-    auto existing = minimalMoves.find(hash);
-    if (existing == minimalMoves.end()) {
-        minimalMoves.emplace(hash, board.moveSequence.n);
+    auto existing = minimalMoves.get(hash);
+    if (existing == nullptr) {
+        minimalMoves.insert(hash, board.moveSequence.n);
     } else {
-        if (existing->second <= board.moveSequence.n) {
+        if (*existing <= board.moveSequence.n) {
             // Someone else already reached this state with fewer moves
             return; // Give up
         } else {
-            existing->second = board.moveSequence.n;
+            *existing = board.moveSequence.n;
         }
     }
 
@@ -73,9 +74,11 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, std::unorde
 }
 
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
+    static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
+    minimalMoves.clear();
+
     size_t bound = maxSteps;
     Board best = {};
-    std::unordered_map<uint64_t, size_t> minimalMoves;
     branch(levelNr, initialBoard, bound, best, minimalMoves);
     return best;
 }
