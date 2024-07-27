@@ -104,7 +104,7 @@ struct Board {
     Field fields[rows][cols] = {};
     MoveSequence moveSequence;
 
-    uint64_t hash() {
+    [[nodiscard]] uint64_t hash() const {
         return MurmurHash64(&fields, sizeof(fields));
     }
 

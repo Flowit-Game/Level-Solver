@@ -10,6 +10,8 @@
 
 size_t minStepsNeeded(const Board &board) {
     bool positionsNeeded[rows][cols] = { false };
+    bool colorsNeeded[6] = {false};
+    bool colorsHandled[6] = {false};
     size_t missing = 0;
 
     for (size_t row = 0; row < rows; row++) {
@@ -18,19 +20,28 @@ size_t minStepsNeeded(const Board &board) {
             if (field.isCorrect()) {
                 continue;
             }
+            if (field.getModifier() == '0') {
+                colorsNeeded[Field::colorMPHF(field.getColor())] = true;
+            }
             if (field.onlyReachableFrom != POSITION_NONE) {
                 if (!positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col]) {
                     missing++;
                 }
                 positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col] = true;
+                colorsHandled[Field::colorMPHF(field.getColor())] = true;
             }
+        }
+    }
+    for (size_t i = 0; i < 5; i++) { // Colors only give hash values from 0..5
+        if (colorsNeeded[i] && !colorsHandled[i]) {
+            missing++;
         }
     }
     return missing;
 }
 
 void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleApproximateMap<uint64_t, size_t> &minimalMoves) {
-    if (board.moveSequence.n > bound) {
+    if (board.moveSequence.n >= bound) {
         return; // Give up
     }
     uint64_t hash = board.hash();
@@ -47,7 +58,7 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
     }
 
     size_t stepsNeeded = minStepsNeeded(board);
-    if (board.moveSequence.n + stepsNeeded > bound) {
+    if (board.moveSequence.n + stepsNeeded >= bound) {
         return;
     }
 
@@ -76,9 +87,9 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
     static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
 
-    for (size_t iterativeBound = 30; iterativeBound <= maxSteps; iterativeBound += 5) {
+    for (size_t iterativeBound = 10; iterativeBound <= maxSteps; iterativeBound += 5) {
         std::cout<<"# Testing "<<iterativeBound<<" steps"<<std::endl;
-        size_t bound = iterativeBound;
+        size_t bound = iterativeBound + 1;
         minimalMoves.clear();
         Board best = {};
         branch(levelNr, initialBoard, bound, best, minimalMoves);
