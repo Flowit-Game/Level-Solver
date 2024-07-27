@@ -289,7 +289,7 @@ struct Board {
             char color = field.getColor();
             for (size_t dr = 0; dr < 3; dr++) {
                 for (size_t dc = 0; dc < 3; dc++) {
-                    if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
+                    if (row - 1 + dr < rows && col - 1 + dc < cols) {
                         Field &f = fields[row - 1 + dr][col - 1 + dc];
                         if (f.getModifier() != 'X') {
                             f.setModifier(color);
