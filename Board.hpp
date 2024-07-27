@@ -225,7 +225,7 @@ struct Board {
         }
     }
 
-    void fill(int dr, int rc, size_t row, size_t col, char color) {
+    bool fill(int dr, int rc, size_t row, size_t col, char color) {
         row += dr;
         col += rc;
         char from;
@@ -237,13 +237,14 @@ struct Board {
             from = '0';
             to = color;
         } else {
-            return;
+            return false;
         }
         while (fields[row][col].getModifier() == from && row < rows && col < cols) {
             fields[row][col].setModifier(to);
             row += dr;
             col += rc;
         }
+        return true;
     }
 
     bool flood(size_t row, size_t col, char from, char to) {
@@ -262,20 +263,20 @@ struct Board {
         }
     }
 
-    void click(size_t row, size_t col) {
+    bool click(size_t row, size_t col) {
         moveSequence.moves[moveSequence.n].col = col;
         moveSequence.moves[moveSequence.n].row = row;
         moveSequence.n++;
 
         Field &field = fields[row][col];
         if (field.getModifier() == 'U') {
-            fill(-1, 0, row, col, field.getColor());
+            return fill(-1, 0, row, col, field.getColor());
         } else if (field.getModifier() == 'D') {
-            fill(1, 0, row, col, field.getColor());
+            return fill(1, 0, row, col, field.getColor());
         } else if (field.getModifier() == 'L') {
-            fill(0, -1, row, col, field.getColor());
+            return fill(0, -1, row, col, field.getColor());
         } else if (field.getModifier() == 'R') {
-            fill(0, 1, row, col, field.getColor());
+            return fill(0, 1, row, col, field.getColor());
         } else if (field.getModifier() == 'F') {
             char from = '0';
             char to = field.getColor();
@@ -288,11 +289,12 @@ struct Board {
             if (!somethingFilled) {
                 from = field.getColor();
                 to = '0';
-                flood(row + 1, col, from, to);
-                flood(row - 1, col, from, to);
-                flood(row, col + 1, from, to);
-                flood(row, col - 1, from, to);
+                somethingFilled |= flood(row + 1, col, from, to);
+                somethingFilled |= flood(row - 1, col, from, to);
+                somethingFilled |= flood(row, col + 1, from, to);
+                somethingFilled |= flood(row, col - 1, from, to);
             }
+            return somethingFilled;
         } else if (field.getModifier() == 'B') {
             char color = field.getColor();
             for (size_t dr = 0; dr < 3; dr++) {
@@ -305,21 +307,27 @@ struct Board {
                     }
                 }
             }
+            return true;
         } else if (field.getModifier() == 'w') {
             fill(-1, 0, row, col, field.getColor());
             field.setModifier('x');
+            return true;
         } else if (field.getModifier() == 's') {
             fill(1, 0, row, col, field.getColor());
             field.setModifier('a');
+            return true;
         } else if (field.getModifier() == 'a') {
             fill(0, -1, row, col, field.getColor());
             field.setModifier('w');
+            return true;
         } else if (field.getModifier() == 'x') {
             fill(0, 1, row, col, field.getColor());
             field.setModifier('s');
+            return true;
         } else {
             std::cout<<"Unknown modifier"<<std::endl;
         }
+        return false;
     }
 
     [[nodiscard]] bool isSolved() const {
@@ -333,8 +341,8 @@ struct Board {
         return true;
     }
 
-    void click(const char *string) {
-        click(string[1] - '0' - 1, string[0] - 'A');
+    bool click(const char *string) {
+        return click(string[1] - '0' - 1, string[0] - 'A');
     }
 
     using ReachabilityArray = std::vector<Position>[rows][cols];

@@ -105,7 +105,7 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
     if (board.moveSequence.n + stepsNeeded >= bound) {
         static size_t previousPrint = 0;
         previousPrint++;
-        if (previousPrint >= 10000000) {
+        if (previousPrint >= 1000000) {
             std::cout<<"# Progress: "<<board.moveSequence.toString()<<std::endl;
             previousPrint = 0;
         }
@@ -132,8 +132,10 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
                 continue;
             }
             Board newBoard = board;
-            newBoard.click(permutedRow, permutedCol);
-            branch(levelNr, newBoard, bound, best, minimalMoves);
+            bool somethingChanged = newBoard.click(permutedRow, permutedCol);
+            if (somethingChanged) {
+                branch(levelNr, newBoard, bound, best, minimalMoves);
+            }
         }
     }
 }
