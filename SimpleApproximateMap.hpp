@@ -4,7 +4,7 @@
 
 template<typename K, typename V>
 class SimpleApproximateMap {
-        static constexpr size_t SIZE = 1e9;
+        static constexpr size_t SIZE = 5e8;
         std::vector<std::tuple<size_t, K, V>> map;
         size_t epoch = 1;
     public:

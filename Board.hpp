@@ -4,17 +4,43 @@
 #include <cstddef>
 #include <string>
 #include <iostream>
+#include <vector>
 
-constexpr size_t maxSteps = 30;
+constexpr size_t maxSteps = 40;
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
+
+struct Position {
+    union {
+        struct {
+            uint8_t row : 4;
+            uint8_t col : 4;
+        };
+        uint8_t both;
+    };
+
+    constexpr Position() : row(0), col(0) {
+
+    }
+
+    constexpr Position(uint8_t row, uint8_t col) : row(row), col(col) {
+
+    }
+
+    bool operator !=(const Position &other) const {
+        return both != other.both;
+    }
+};
+
+static constexpr Position POSITION_NONE(15, 15);
 
 struct Field {
     private:
         char color = 'g';
         char modifier = '0';
-
     public:
+        Position onlyReachableFrom = POSITION_NONE;
+
         [[nodiscard]] bool isClickable() const {
             char m = getModifier();
             return m == 'L' || m == 'R' || m == 'U' || m == 'D'
@@ -57,13 +83,8 @@ struct Field {
         }
 };
 
-struct Move {
-    char row : 4;
-    char col : 4;
-};
-
 struct MoveSequence {
-    Move moves[maxSteps];
+    Position moves[maxSteps];
     size_t n = 0;
 
     std::string toString() {
@@ -209,7 +230,7 @@ struct Board {
         } else {
             return;
         }
-        while (fields[row][col].getModifier() == from) {
+        while (fields[row][col].getModifier() == from && row < rows && col < cols) {
             fields[row][col].setModifier(to);
             row += dr;
             col += rc;
@@ -307,20 +328,88 @@ struct Board {
         click(string[1] - '0' - 1, string[0] - 'A');
     }
 
+    using ReachabilityArray = std::vector<Position>[rows][cols];
+
+    static void fillReachability(int dr, int rc, const size_t row, const size_t col, char color, Board &b,
+                                 ReachabilityArray &reachableFrom) {
+        size_t r = row + dr;
+        size_t c = col + rc;
+        while (r < rows && c < cols) {
+            if (b.fields[r][c].getColor() == color) {
+                reachableFrom[r][c].emplace_back(row, col);
+            }
+            r += dr;
+            c += rc;
+        }
+    }
+
     static Board from(std::string color, std::string modifier) {
         Board initialBoard;
         bool smallBoard = color.length() == 5 * 6;
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
+                Field &field = initialBoard.fields[row][col];
                 if (smallBoard && (row >= 6 || col >= 5)) {
-                    initialBoard.fields[row][col].setColor('0');
-                    initialBoard.fields[row][col].setModifier('X');
+                    field.setColor('0');
+                    field.setModifier('X');
                     continue;
                 }
-                char c = color[row * (smallBoard ? 5 : 6) + col];
-                char m = modifier[row * (smallBoard ? 5 : 6) + col];
-                initialBoard.fields[row][col].setColor(c);
-                initialBoard.fields[row][col].setModifier(m);
+                field.setColor(color[row * (smallBoard ? 5 : 6) + col]);
+                field.setModifier(modifier[row * (smallBoard ? 5 : 6) + col]);
+            }
+        }
+
+        // Fill reachability
+        ReachabilityArray reachableFrom;
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                Field &field = initialBoard.fields[row][col];
+                if (!field.isClickable()) {
+                    continue;
+                }
+
+                if (field.getModifier() == 'U') {
+                    fillReachability(-1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
+                } else if (field.getModifier() == 'D') {
+                    fillReachability(1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
+                } else if (field.getModifier() == 'L') {
+                    fillReachability(0, -1, row, col, field.getColor(), initialBoard, reachableFrom);
+                } else if (field.getModifier() == 'R') {
+                    fillReachability(0, 1, row, col, field.getColor(), initialBoard, reachableFrom);
+                } else if (field.getModifier() == 'F') {
+                    for (size_t r = 0; r < rows; r++) {
+                        for (size_t c = 0; c < cols; c++) {
+                            if (initialBoard.fields[r][c].getColor() == field.getColor()) {
+                                reachableFrom[r][c].emplace_back(row, col);
+                            }
+                        }
+                    }
+                } else if (field.getModifier() == 'B') {
+                    for (size_t dr = 0; dr < 3; dr++) {
+                        for (size_t dc = 0; dc < 3; dc++) {
+                            if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
+                                if (initialBoard.fields[row - 1 + dr][col - 1 + dc].getColor() == field.getColor()) {
+                                    reachableFrom[row - 1 + dr][col - 1 + dc].emplace_back(row, col);
+                                }
+                            }
+                        }
+                    }
+                } else if (field.getModifier() == 'w' || field.getModifier() == 's'
+                           || field.getModifier() == 'a' || field.getModifier() == 'x') {
+                    fillReachability(-1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
+                    fillReachability(1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
+                    fillReachability(0, -1, row, col, field.getColor(), initialBoard, reachableFrom);
+                    fillReachability(0, 1, row, col, field.getColor(), initialBoard, reachableFrom);
+                } else {
+                    std::cout << "Unknown modifier" << std::endl;
+                }
+            }
+        }
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                if (reachableFrom[row][col].size() == 1) {
+                    initialBoard.fields[row][col].onlyReachableFrom = reachableFrom[row][col].front();
+                }
             }
         }
         return initialBoard;
