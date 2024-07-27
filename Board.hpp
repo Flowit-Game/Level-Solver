@@ -43,9 +43,17 @@ struct Field {
 
         [[nodiscard]] bool isClickable() const {
             char m = getModifier();
-            return m == 'L' || m == 'R' || m == 'U' || m == 'D'
-                   || m == 'w' || m == 'x' || m == 'a' || m == 's'
-                   || m == 'F' || m == 'B';
+            return isStaticArrow() || isRotatingArrow() || m == 'F' || m == 'B';
+        }
+
+        [[nodiscard]] bool isStaticArrow() const {
+            char m = getModifier();
+            return m == 'L' || m == 'R' || m == 'U' || m == 'D';
+        }
+
+        [[nodiscard]] bool isRotatingArrow() const {
+            char m = getModifier();
+            return m == 'w' || m == 'x' || m == 'a' || m == 's';
         }
 
         [[nodiscard]] bool isCorrect() const {

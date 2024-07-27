@@ -9,7 +9,7 @@
 #include "SimpleApproximateMap.hpp"
 
 size_t minStepsNeeded(const Board &board) {
-    bool positionsNeeded[rows][cols] = { false };
+    uint8_t positionsNeeded[rows][cols] = { 0 };
     bool colorsNeeded[6] = {false};
     bool colorsHandled[6] = {false};
     bool colorsNeedRemoval[6] = {false};
@@ -26,9 +26,41 @@ size_t minStepsNeeded(const Board &board) {
                 colorsNeeded[Field::colorMPHF(field.getColor())] = true;
             }
             if (field.onlyReachableFrom != POSITION_NONE) {
-                if (!positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col]) {
-                    positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col] = true;
-                    missing++;
+                size_t clicksNeeded = 1;
+                size_t neededR = field.onlyReachableFrom.row;
+                size_t neededC = field.onlyReachableFrom.col;
+
+                if (board.fields[neededR][neededC].isRotatingArrow()) {
+                    char direction = board.fields[neededR][neededC].getModifier();
+                    if (row == neededR && col < neededC) { // left
+                        if (direction == 'w') clicksNeeded = 4;
+                        if (direction == 'x') clicksNeeded = 3;
+                        if (direction == 's') clicksNeeded = 2;
+                        if (direction == 'a') clicksNeeded = 1;
+                    } else if (row == neededR && col > neededC) { // right
+                        if (direction == 'w') clicksNeeded = 2;
+                        if (direction == 'x') clicksNeeded = 1;
+                        if (direction == 's') clicksNeeded = 4;
+                        if (direction == 'a') clicksNeeded = 3;
+                    } else if (col == neededC && row < neededR) { // above
+                        if (direction == 'w') clicksNeeded = 1;
+                        if (direction == 'x') clicksNeeded = 4;
+                        if (direction == 's') clicksNeeded = 3;
+                        if (direction == 'a') clicksNeeded = 2;
+                    } else if (col == neededC && row > neededR) { // below
+                        if (direction == 'w') clicksNeeded = 3;
+                        if (direction == 'x') clicksNeeded = 2;
+                        if (direction == 's') clicksNeeded = 1;
+                        if (direction == 'a') clicksNeeded = 4;
+                    } else {
+                        std::cout<<"Unknown rotating arrow"<<std::endl;
+                        exit(1);
+                    }
+                }
+
+                if (positionsNeeded[neededR][neededC] < clicksNeeded) {
+                    missing += clicksNeeded - positionsNeeded[neededR][neededC];
+                    positionsNeeded[neededR][neededC] = clicksNeeded;
                 }
                 colorsHandled[Field::colorMPHF(field.getColor())] = true;
             }
