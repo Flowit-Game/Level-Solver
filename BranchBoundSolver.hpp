@@ -103,6 +103,12 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 
     size_t stepsNeeded = minStepsNeeded(board);
     if (board.moveSequence.n + stepsNeeded >= bound) {
+        static size_t previousPrint = 0;
+        previousPrint++;
+        if (previousPrint >= 10000000) {
+            std::cout<<"# Progress: "<<board.moveSequence.toString()<<std::endl;
+            previousPrint = 0;
+        }
         return;
     }
 
@@ -116,13 +122,17 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
         return;
     }
 
+    size_t rowOffset = hash % rows;
+    size_t colOffset = (hash >> 10) % cols;
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++) {
-            if (!board.fields[row][col].isClickable()) {
+            size_t permutedRow = (row + rowOffset) % rows;
+            size_t permutedCol = (col + colOffset) % cols;
+            if (!board.fields[permutedRow][permutedCol].isClickable()) {
                 continue;
             }
             Board newBoard = board;
-            newBoard.click(row, col);
+            newBoard.click(permutedRow, permutedCol);
             branch(levelNr, newBoard, bound, best, minimalMoves);
         }
     }
