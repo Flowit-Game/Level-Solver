@@ -12,7 +12,9 @@ size_t minStepsNeeded(const Board &board) {
     bool positionsNeeded[rows][cols] = { false };
     bool colorsNeeded[6] = {false};
     bool colorsHandled[6] = {false};
+    bool colorsNeedRemoval[6] = {false};
     size_t missing = 0;
+    size_t needsRemoval = 0;
 
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++) {
@@ -25,10 +27,17 @@ size_t minStepsNeeded(const Board &board) {
             }
             if (field.onlyReachableFrom != POSITION_NONE) {
                 if (!positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col]) {
+                    positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col] = true;
                     missing++;
                 }
-                positionsNeeded[field.onlyReachableFrom.row][field.onlyReachableFrom.col] = true;
                 colorsHandled[Field::colorMPHF(field.getColor())] = true;
+            }
+            if (Field::isColor(field.getModifier())) {
+                // Needs to remove wrong color first
+                if (!colorsNeedRemoval[Field::colorMPHF(field.getModifier())]) {
+                    colorsNeedRemoval[Field::colorMPHF(field.getModifier())] = true;
+                    needsRemoval++;
+                }
             }
         }
     }
@@ -36,6 +45,9 @@ size_t minStepsNeeded(const Board &board) {
         if (colorsNeeded[i] && !colorsHandled[i]) {
             missing++;
         }
+    }
+    if (!board.hasBombs) {
+        missing += needsRemoval;
     }
     return missing;
 }
@@ -87,7 +99,7 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
     static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
 
-    for (size_t iterativeBound = 10; iterativeBound <= maxSteps; iterativeBound += 5) {
+    for (size_t iterativeBound = 20; iterativeBound <= maxSteps; iterativeBound += 10) {
         std::cout<<"# Testing "<<iterativeBound<<" steps"<<std::endl;
         size_t bound = iterativeBound + 1;
         minimalMoves.clear();

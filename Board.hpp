@@ -103,6 +103,7 @@ struct MoveSequence {
 struct Board {
     Field fields[rows][cols] = {};
     MoveSequence moveSequence;
+    bool hasBombs = false;
 
     [[nodiscard]] uint64_t hash() const {
         return MurmurHash64(&fields, sizeof(fields));
@@ -385,6 +386,7 @@ struct Board {
                         }
                     }
                 } else if (field.getModifier() == 'B') {
+                    initialBoard.hasBombs = true;
                     for (size_t dr = 0; dr < 3; dr++) {
                         for (size_t dc = 0; dc < 3; dc++) {
                             if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
