@@ -84,7 +84,8 @@ size_t minStepsNeeded(const Board &board) {
     return missing;
 }
 
-void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleApproximateMap<uint32_t> &minimalMoves) {
+void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
+            const Board &initialBoard, SimpleApproximateMap<uint32_t> &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
@@ -128,6 +129,34 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
                      <<bound<<" using "<<board.moveSequence.toString()<<std::endl;
             best = board;
         }
+
+        MoveSequence sequence = board.moveSequence;
+        // Try to simplify sequence by removing up to 4 steps (removing fewer when skip1==skip2)
+        for (size_t skip1 = 0; skip1 < sequence.n; skip1++) {
+            for (size_t skip2 = skip1; skip2 < sequence.n; skip2++) {
+                for (size_t skip3 = skip2; skip3 < sequence.n; skip3++) {
+                    for (size_t skip4 = skip3; skip4 < sequence.n; skip4++) {
+                        Board maybeShorter = initialBoard;
+                        for (size_t i = 0; i < sequence.n; i++) {
+                            if (i == skip1 || i == skip2 || i == skip3 || i == skip4) {
+                                continue;
+                            }
+                            Position move = sequence.moves[i];
+                            if (!maybeShorter.fields[move.row][move.col].isClickable()) {
+                                break; // Cannot apply shorter sequence
+                            }
+                            maybeShorter.click(move);
+                        }
+                        if (maybeShorter.isSolved() && maybeShorter.moveSequence.n < bound) {
+                            bound = maybeShorter.moveSequence.n;
+                            std::cout << "# Simplified bound:  "
+                                      << bound << " using " << maybeShorter.moveSequence.toString() << std::endl;
+                            best = maybeShorter;
+                        }
+                    }
+                }
+            }
+        }
         return;
     }
 
@@ -143,7 +172,7 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
             Board newBoard = board;
             bool somethingChanged = newBoard.click(permutedRow, permutedCol);
             if (somethingChanged) {
-                branch(levelNr, newBoard, bound, best, minimalMoves);
+                branch(levelNr, newBoard, bound, best, initialBoard, minimalMoves);
             }
         }
     }
@@ -165,7 +194,7 @@ Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
         size_t bound = iterativeBound + 1;
         minimalMoves.nextEpoch();
         Board best = {};
-        branch(levelNr, initialBoard, bound, best, minimalMoves);
+        branch(levelNr, initialBoard, bound, best, initialBoard, minimalMoves);
         if (best.isSolved()) {
             return best;
         }

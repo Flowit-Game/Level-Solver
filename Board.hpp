@@ -95,8 +95,8 @@ struct MoveSequence {
     Position moves[maxSteps];
     size_t n = 0;
 
-    std::string toString() {
-        std::string sequence = "";
+    [[nodiscard]] std::string toString() const {
+        std::string sequence;
         for (size_t i = 0; i < n; i++) {
             sequence += ('A' + moves[i].col);
             sequence += std::to_string(moves[i].row + 1);
@@ -343,6 +343,10 @@ struct Board {
 
     bool click(const char *string) {
         return click(string[1] - '0' - 1, string[0] - 'A');
+    }
+
+    bool click(const Position position) {
+        return click(position.row, position.col);
     }
 
     using ReachabilityArray = std::vector<Position>[rows][cols];
