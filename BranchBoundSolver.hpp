@@ -84,7 +84,7 @@ size_t minStepsNeeded(const Board &board) {
     return missing;
 }
 
-void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleApproximateMap<uint64_t, size_t> &minimalMoves) {
+void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleApproximateMap<uint32_t> &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
@@ -150,7 +150,7 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 }
 
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
-    static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
+    static SimpleApproximateMap<uint32_t> minimalMoves;
     minimalMoves.clear();
 
     size_t boundSteps[] = {10, 15, 20, 25, 30, 35, 40};
