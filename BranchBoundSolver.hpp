@@ -90,14 +90,23 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
     }
     uint64_t hash = board.hash();
     auto existing = minimalMoves.get(hash);
-    if (existing == nullptr) {
+    if (existing.value == nullptr) {
         minimalMoves.insert(hash, board.moveSequence.n);
     } else {
-        if (*existing <= board.moveSequence.n) {
+        if (*existing.value == board.moveSequence.n) {
+            // Someone else already reached this state with the same number of moves
+            if (existing.isSameEpoch) {
+                // Someone else already recursed from here
+                return;
+            } else {
+                // Still need to recurse from here
+                minimalMoves.insert(hash, board.moveSequence.n); // Update epoch
+            }
+        } else if (*existing.value < board.moveSequence.n) {
             // Someone else already reached this state with fewer moves
             return; // Give up
         } else {
-            *existing = board.moveSequence.n;
+            *existing.value = board.moveSequence.n;
         }
     }
 
@@ -142,11 +151,19 @@ void branch(size_t levelNr, Board board, size_t &bound, Board &best, SimpleAppro
 
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
     static SimpleApproximateMap<uint64_t, size_t> minimalMoves;
+    minimalMoves.clear();
 
-    for (size_t iterativeBound = 20; iterativeBound <= maxSteps; iterativeBound += 10) {
+    size_t boundSteps[] = {10, 15, 20, 25, 30, 35, 40};
+    //size_t boundSteps[] = {15, 33};
+
+    for (size_t iterativeBound : boundSteps) {
+        if (iterativeBound > maxSteps) {
+            std::cout<<"Broken step sequence"<<std::endl;
+            exit(1);
+        }
         std::cout<<"# Testing "<<iterativeBound<<" steps"<<std::endl;
         size_t bound = iterativeBound + 1;
-        minimalMoves.clear();
+        minimalMoves.nextEpoch();
         Board best = {};
         branch(levelNr, initialBoard, bound, best, minimalMoves);
         if (best.isSolved()) {
