@@ -1,4 +1,4 @@
-all: solver
+all: release
 
 debug:: main.cpp
 	g++ -Wall -g -std=gnu++20 main.cpp -o solver
