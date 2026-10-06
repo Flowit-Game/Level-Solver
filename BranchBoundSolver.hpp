@@ -65,15 +65,15 @@ size_t minStepsNeeded(const Board &board) {
 }
 
 void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Board &best,
-            const Board &initialBoard, SimpleApproximateMap<uint32_t> &minimalMoves) {
+            const Board &initialBoard, SimpleApproximateMap &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
     auto existing = minimalMoves.get(hash);
-    if (existing.value == nullptr) {
+    if (!existing.found) {
         minimalMoves.insert(hash, board.moveSequence.n);
     } else {
-        if (*existing.value == board.moveSequence.n) {
+        if (existing.value == board.moveSequence.n) {
             // Someone else already reached this state with the same number of moves
             if (existing.isSameEpoch) {
                 // Someone else already recursed from here
@@ -82,7 +82,7 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
                 // Still need to recurse from here
                 minimalMoves.insert(hash, board.moveSequence.n); // Update epoch
             }
-        } else if (*existing.value < board.moveSequence.n) {
+        } else if (existing.value < board.moveSequence.n) {
             // Someone else already reached this state with fewer moves
             return; // Give up
         } else {
@@ -171,7 +171,7 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
 }
 
 Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
-    static SimpleApproximateMap<uint32_t> minimalMoves;
+    static SimpleApproximateMap minimalMoves;
     minimalMoves.clear();
 
     size_t boundSteps[] = {10, 15, 20, 30, 40, 50};
