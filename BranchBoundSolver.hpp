@@ -5,6 +5,9 @@
 #include <cassert>
 #include <unordered_map>
 #include <set>
+#include <atomic>
+#include <mutex>
+#include <thread>
 #include "Board.hpp"
 #include "SimpleApproximateMap.hpp"
 
@@ -64,10 +67,18 @@ size_t minStepsNeeded(const Board &board) {
     return missing;
 }
 
-void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Board &best,
-            const Board &initialBoard, SimpleApproximateMap &minimalMoves) {
+constexpr size_t splitDepth = 3;
+std::mutex outputMutex; // Protects best, updates of bound, and std::cout
+
+// If work is set, boards at splitDepth are collected there instead of searched
+void branch(size_t levelNr, const Board &board, uint64_t hash, std::atomic<size_t> &bound, Board &best,
+            const Board &initialBoard, SimpleApproximateMap &minimalMoves, std::vector<Board> *work) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
+    }
+    if (work != nullptr && board.moveSequence.n == splitDepth) {
+        work->push_back(board);
+        return;
     }
     auto existing = minimalMoves.get(hash);
     if (!existing.found) {
@@ -92,9 +103,10 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
 
     size_t stepsNeeded = minStepsNeeded(board);
     if (board.moveSequence.n + stepsNeeded >= bound) {
-        static size_t previousPrint = 0;
+        thread_local size_t previousPrint = 0;
         previousPrint++;
         if (previousPrint >= 1000000) {
+            std::lock_guard lock(outputMutex);
             std::cout<<"# Progress: "<<board.moveSequence.toString()<<std::endl;
             previousPrint = 0;
         }
@@ -102,11 +114,14 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
     }
 
     if (board.isSolved()) {
-        if (board.moveSequence.n < bound) {
-            bound = board.moveSequence.n;
-            std::cout<<"# New bound for "<<levelNr<<": "
-                     <<bound<<" using "<<board.moveSequence.toString()<<std::endl;
-            best = board;
+        {
+            std::lock_guard lock(outputMutex);
+            if (board.moveSequence.n < bound) {
+                bound = board.moveSequence.n;
+                std::cout<<"# New bound for "<<levelNr<<": "
+                         <<bound<<" using "<<board.moveSequence.toString()<<std::endl;
+                best = board;
+            }
         }
 
         MoveSequence sequence = board.moveSequence;
@@ -127,10 +142,13 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
                             maybeShorter.click(move);
                         }
                         if (maybeShorter.isSolved() && maybeShorter.moveSequence.n < bound) {
-                            bound = maybeShorter.moveSequence.n;
-                            std::cout << "# Simplified bound:  "
-                                      << bound << " using " << maybeShorter.moveSequence.toString() << std::endl;
-                            best = maybeShorter;
+                            std::lock_guard lock(outputMutex);
+                            if (maybeShorter.moveSequence.n < bound) {
+                                bound = maybeShorter.moveSequence.n;
+                                std::cout << "# Simplified bound:  "
+                                          << bound << " using " << maybeShorter.moveSequence.toString() << std::endl;
+                                best = maybeShorter;
+                            }
                         }
                     }
                 }
@@ -145,7 +163,7 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
     }
     // Generate all children first and prefetch their map entries, then recurse.
     // Children of a node at depth n live in slot n, so recursing never overwrites waiting siblings.
-    static std::vector<Board> childBuffer((maxSteps + 1) * rows * cols);
+    thread_local std::vector<Board> childBuffer((maxSteps + 1) * rows * cols);
     Board *children = &childBuffer[board.moveSequence.n * rows * cols];
     uint64_t childHashes[rows * cols];
     size_t numChildren = 0;
@@ -166,7 +184,7 @@ void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Bo
         }
     }
     for (size_t i = 0; i < numChildren; i++) {
-        branch(levelNr, children[i], childHashes[i], bound, best, initialBoard, minimalMoves);
+        branch(levelNr, children[i], childHashes[i], bound, best, initialBoard, minimalMoves, work);
     }
 }
 
@@ -183,10 +201,25 @@ Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
             exit(1);
         }
         std::cout<<"# Testing "<<iterativeBound<<" steps"<<std::endl;
-        size_t bound = iterativeBound + 1;
+        std::atomic<size_t> bound = iterativeBound + 1;
         minimalMoves.nextEpoch();
         Board best = {};
-        branch(levelNr, initialBoard, initialBoard.hash(), bound, best, initialBoard, minimalMoves);
+        std::vector<Board> work;
+        branch(levelNr, initialBoard, initialBoard.hash(), bound, best, initialBoard, minimalMoves, &work);
+
+        std::atomic<size_t> nextWork = 0;
+        std::vector<std::thread> threads;
+        size_t numThreads = std::max(1u, std::thread::hardware_concurrency());
+        for (size_t t = 0; t < numThreads; t++) {
+            threads.emplace_back([&] {
+                for (size_t i = nextWork++; i < work.size(); i = nextWork++) {
+                    branch(levelNr, work[i], work[i].hash(), bound, best, initialBoard, minimalMoves, nullptr);
+                }
+            });
+        }
+        for (std::thread &thread : threads) {
+            thread.join();
+        }
         if (best.isSolved()) {
             return best;
         }
