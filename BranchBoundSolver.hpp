@@ -9,6 +9,7 @@
 #include "SimpleApproximateMap.hpp"
 
 size_t minStepsNeeded(const Board &board) {
+    const Level &level = *board.level;
     uint8_t positionsNeeded[rows][cols] = { 0 };
     bool colorsNeeded[6] = {false};
     bool colorsHandled[6] = {false};
@@ -18,20 +19,22 @@ size_t minStepsNeeded(const Board &board) {
 
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++) {
-            const Field &field = board.fields[row][col];
-            if (field.isCorrect()) {
+            char color = level.colors[row][col];
+            char modifier = board.modifiers[row][col];
+            if (Field::isCorrect(color, modifier)) {
                 continue;
             }
-            if (field.getModifier() == '0') {
-                colorsNeeded[Field::colorMPHF(field.getColor())] = true;
+            if (modifier == '0') {
+                colorsNeeded[Field::colorMPHF(color)] = true;
             }
-            if (field.onlyReachableFrom != POSITION_NONE) {
+            Position reachableFrom = level.onlyReachableFrom[row][col];
+            if (reachableFrom != POSITION_NONE) {
                 size_t clicksNeeded = 1;
-                size_t neededR = field.onlyReachableFrom.row;
-                size_t neededC = field.onlyReachableFrom.col;
+                size_t neededR = reachableFrom.row;
+                size_t neededC = reachableFrom.col;
 
-                if (board.fields[neededR][neededC].isRotatingArrow()) {
-                    char direction = board.fields[neededR][neededC].getModifier();
+                if (Field::isRotatingArrow(board.modifiers[neededR][neededC])) {
+                    char direction = board.modifiers[neededR][neededC];
                     if (row == neededR && col < neededC) { // left
                         if (direction == 'w') clicksNeeded = 4;
                         if (direction == 'x') clicksNeeded = 3;
@@ -62,12 +65,12 @@ size_t minStepsNeeded(const Board &board) {
                     missing += clicksNeeded - positionsNeeded[neededR][neededC];
                     positionsNeeded[neededR][neededC] = clicksNeeded;
                 }
-                colorsHandled[Field::colorMPHF(field.getColor())] = true;
+                colorsHandled[Field::colorMPHF(color)] = true;
             }
-            if (Field::isColor(field.getModifier())) {
+            if (Field::isColor(modifier)) {
                 // Needs to remove wrong color first
-                if (!colorsNeedRemoval[Field::colorMPHF(field.getModifier())]) {
-                    colorsNeedRemoval[Field::colorMPHF(field.getModifier())] = true;
+                if (!colorsNeedRemoval[Field::colorMPHF(modifier)]) {
+                    colorsNeedRemoval[Field::colorMPHF(modifier)] = true;
                     needsRemoval++;
                 }
             }
@@ -78,7 +81,7 @@ size_t minStepsNeeded(const Board &board) {
             missing++;
         }
     }
-    if (!board.hasBombs) {
+    if (!level.hasBombs) {
         missing += needsRemoval;
     }
     return missing;
@@ -107,7 +110,7 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
             // Someone else already reached this state with fewer moves
             return; // Give up
         } else {
-            *existing.value = board.moveSequence.n;
+            minimalMoves.insert(hash, board.moveSequence.n); // Fewer moves, also update epoch
         }
     }
 
@@ -142,7 +145,7 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
                                 continue;
                             }
                             Position move = sequence.moves[i];
-                            if (!maybeShorter.fields[move.row][move.col].isClickable()) {
+                            if (!maybeShorter.isClickable(move.row, move.col)) {
                                 break; // Cannot apply shorter sequence
                             }
                             maybeShorter.click(move);
@@ -166,7 +169,7 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
         for (size_t col = 0; col < cols; col++) {
             size_t permutedRow = (row + rowOffset) % rows;
             size_t permutedCol = (col + colOffset) % cols;
-            if (!board.fields[permutedRow][permutedCol].isClickable()) {
+            if (!board.isClickable(permutedRow, permutedCol)) {
                 continue;
             }
             Board newBoard = board;
@@ -182,7 +185,7 @@ Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
     static SimpleApproximateMap<uint32_t> minimalMoves;
     minimalMoves.clear();
 
-    size_t boundSteps[] = {10, 15, 20, 25, 30, 35, 40};
+    size_t boundSteps[] = {10, 15, 20, 30, 40, 50};
     //size_t boundSteps[] = {15, 33};
 
     for (size_t iterativeBound : boundSteps) {

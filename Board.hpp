@@ -5,8 +5,10 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <cstring>
+#include "MurmurHash64.hpp"
 
-constexpr size_t maxSteps = 40;
+constexpr size_t maxSteps = 60;
 constexpr size_t rows = 8;
 constexpr size_t cols = 6;
 
@@ -35,60 +37,35 @@ struct Position {
 static constexpr Position POSITION_NONE(15, 15);
 
 struct Field {
-    private:
-        char color = 'g';
-        char modifier = '0';
-    public:
-        Position onlyReachableFrom = POSITION_NONE;
+    static bool isClickable(char m) {
+        return isStaticArrow(m) || isRotatingArrow(m) || m == 'F' || m == 'B';
+    }
 
-        [[nodiscard]] bool isClickable() const {
-            char m = getModifier();
-            return isStaticArrow() || isRotatingArrow() || m == 'F' || m == 'B';
-        }
+    static bool isStaticArrow(char m) {
+        return m == 'L' || m == 'R' || m == 'U' || m == 'D';
+    }
 
-        [[nodiscard]] bool isStaticArrow() const {
-            char m = getModifier();
-            return m == 'L' || m == 'R' || m == 'U' || m == 'D';
-        }
+    static bool isRotatingArrow(char m) {
+        return m == 'w' || m == 'x' || m == 'a' || m == 's';
+    }
 
-        [[nodiscard]] bool isRotatingArrow() const {
-            char m = getModifier();
-            return m == 'w' || m == 'x' || m == 'a' || m == 's';
+    static bool isCorrect(char color, char modifier) {
+        if (!isColor(color)) {
+            return true;
+        } else if (isColor(modifier)) {
+            return modifier == color;
+        } else {
+            return modifier != '0';
         }
+    }
 
-        [[nodiscard]] bool isCorrect() const {
-            if (!isColor(getColor())) {
-                return true;
-            } else if (isColor(getModifier())) {
-                return modifier == color;
-            } else {
-                return getModifier() != '0';
-            }
-        }
+    static bool isColor(char c) {
+        return c == 'r' || c == 'g' || c == 'b' || c == 'o' || c == 'd';
+    }
 
-        [[nodiscard]] char getModifier() const {
-            return modifier;
-        }
-
-        void setModifier(char modifier_) {
-            modifier = modifier_;
-        }
-
-        [[nodiscard]] char getColor() const {
-            return color;
-        }
-
-        void setColor(char color_) {
-            color = color_;
-        }
-
-        static bool isColor(char c) {
-            return c == 'r' || c == 'g' || c == 'b' || c == 'o' || c == 'd';
-        }
-
-        static size_t colorMPHF(char c) {
-            return c % 6;
-        }
+    static size_t colorMPHF(char c) {
+        return c % 6;
+    }
 };
 
 struct MoveSequence {
@@ -108,21 +85,136 @@ struct MoveSequence {
     }
 };
 
-struct Board {
-    Field fields[rows][cols] = {};
-    MoveSequence moveSequence;
+struct Level {
+    char colors[rows][cols];
+    char initialModifiers[rows][cols];
+    Position onlyReachableFrom[rows][cols];
     bool hasBombs = false;
 
+    Level() {
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                colors[row][col] = 'g';
+                initialModifiers[row][col] = '0';
+                onlyReachableFrom[row][col] = POSITION_NONE;
+            }
+        }
+    }
+
+    using ReachabilityArray = std::vector<Position>[rows][cols];
+
+    static void fillReachability(int dr, int rc, const size_t row, const size_t col, char color, const Level &level,
+                                 ReachabilityArray &reachableFrom) {
+        size_t r = row + dr;
+        size_t c = col + rc;
+        while (r < rows && c < cols) {
+            if (level.colors[r][c] == color) {
+                reachableFrom[r][c].emplace_back(row, col);
+            }
+            r += dr;
+            c += rc;
+        }
+    }
+
+    static Level from(std::string color, std::string modifier) {
+        Level level;
+        bool smallBoard = color.length() == 5 * 6;
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                if (smallBoard && (row >= 6 || col >= 5)) {
+                    level.colors[row][col] = '0';
+                    level.initialModifiers[row][col] = 'X';
+                    continue;
+                }
+                level.colors[row][col] = color[row * (smallBoard ? 5 : 6) + col];
+                level.initialModifiers[row][col] = modifier[row * (smallBoard ? 5 : 6) + col];
+            }
+        }
+
+        // Fill reachability
+        ReachabilityArray reachableFrom;
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                char fieldModifier = level.initialModifiers[row][col];
+                char fieldColor = level.colors[row][col];
+                if (!Field::isClickable(fieldModifier)) {
+                    continue;
+                }
+
+                if (fieldModifier == 'U') {
+                    fillReachability(-1, 0, row, col, fieldColor, level, reachableFrom);
+                } else if (fieldModifier == 'D') {
+                    fillReachability(1, 0, row, col, fieldColor, level, reachableFrom);
+                } else if (fieldModifier == 'L') {
+                    fillReachability(0, -1, row, col, fieldColor, level, reachableFrom);
+                } else if (fieldModifier == 'R') {
+                    fillReachability(0, 1, row, col, fieldColor, level, reachableFrom);
+                } else if (fieldModifier == 'F') {
+                    for (size_t r = 0; r < rows; r++) {
+                        for (size_t c = 0; c < cols; c++) {
+                            if (level.colors[r][c] == fieldColor) {
+                                reachableFrom[r][c].emplace_back(row, col);
+                            }
+                        }
+                    }
+                } else if (fieldModifier == 'B') {
+                    level.hasBombs = true;
+                    for (size_t dr = 0; dr < 3; dr++) {
+                        for (size_t dc = 0; dc < 3; dc++) {
+                            if (row - 1 + dr < rows && col - 1 + dc < cols) {
+                                if (level.colors[row - 1 + dr][col - 1 + dc] == fieldColor) {
+                                    reachableFrom[row - 1 + dr][col - 1 + dc].emplace_back(row, col);
+                                }
+                            }
+                        }
+                    }
+                } else if (fieldModifier == 'w' || fieldModifier == 's'
+                           || fieldModifier == 'a' || fieldModifier == 'x') {
+                    fillReachability(-1, 0, row, col, fieldColor, level, reachableFrom);
+                    fillReachability(1, 0, row, col, fieldColor, level, reachableFrom);
+                    fillReachability(0, -1, row, col, fieldColor, level, reachableFrom);
+                    fillReachability(0, 1, row, col, fieldColor, level, reachableFrom);
+                } else {
+                    std::cout << "Unknown modifier" << std::endl;
+                }
+            }
+        }
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                if (reachableFrom[row][col].size() == 1) {
+                    level.onlyReachableFrom[row][col] = reachableFrom[row][col].front();
+                }
+            }
+        }
+        return level;
+    }
+};
+
+struct Board {
+    char modifiers[rows][cols] = {};
+    MoveSequence moveSequence;
+    const Level *level = nullptr; // Must outlive the board
+
+    Board() = default;
+
+    explicit Board(const Level &level) : level(&level) {
+        std::memcpy(modifiers, level.initialModifiers, sizeof(modifiers));
+    }
+
+    [[nodiscard]] bool isClickable(size_t row, size_t col) const {
+        return Field::isClickable(modifiers[row][col]);
+    }
+
     [[nodiscard]] uint64_t hash() const {
-        return MurmurHash64(&fields, sizeof(fields));
+        return MurmurHash64(modifiers, sizeof(modifiers));
     }
 
     std::string toString() {
         std::string description("", rows * (cols + 1) * 2 + 1);
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
-                description[row * (cols + 1) + col] = fields[row][col].getColor();
-                description[rows * (cols + 1) + 1 + row * (cols + 1) + col] = fields[row][col].getModifier();
+                description[row * (cols + 1) + col] = level->colors[row][col];
+                description[rows * (cols + 1) + 1 + row * (cols + 1) + col] = modifiers[row][col];
             }
             description[row * (cols + 1) + cols] = '\n';
             description[rows * (cols + 1) + 1 + row * (cols + 1) + cols] = '\n';
@@ -136,11 +228,11 @@ struct Board {
             std::cout<<"# ";
             for (size_t col = 0; col < cols; col++) {
                 std::cout<<"\033[0m";
-                if (fields[row][col].getModifier() == 'X') {
+                if (modifiers[row][col] == 'X') {
                     std::cout<<"\033[40m   ";
                     continue;
                 }
-                switch (fields[row][col].getColor()) {
+                switch (level->colors[row][col]) {
                     case 'r':
                         std::cout<<"\033[41m";
                         break;
@@ -161,11 +253,11 @@ struct Board {
                         break;
                 }
                 std::cout<<" ";
-                if (Field::isColor(fields[row][col].getModifier())
-                    && fields[row][col].getModifier() == fields[row][col].getColor()) {
+                if (Field::isColor(modifiers[row][col])
+                    && modifiers[row][col] == level->colors[row][col]) {
                     std::cout<<"□";
-                } else if (Field::isColor(fields[row][col].getModifier())) {
-                    switch (fields[row][col].getModifier()) {
+                } else if (Field::isColor(modifiers[row][col])) {
+                    switch (modifiers[row][col]) {
                         case 'r':
                             std::cout<<"\033[31m";
                             break;
@@ -187,7 +279,7 @@ struct Board {
                     }
                     std::cout << "■";
                 } else {
-                    switch (fields[row][col].getModifier()) {
+                    switch (modifiers[row][col]) {
                         case '0':
                             std::cout << "\033[30m■";
                             break;
@@ -228,19 +320,22 @@ struct Board {
     bool fill(int dr, int rc, size_t row, size_t col, char color) {
         row += dr;
         col += rc;
+        if (row >= rows || col >= cols) {
+            return false;
+        }
         char from;
         char to;
-        if (fields[row][col].getModifier() == color) { // Un-fill
+        if (modifiers[row][col] == color) { // Un-fill
             from = color;
             to = '0';
-        } else if (fields[row][col].getModifier() == '0') { // Fill
+        } else if (modifiers[row][col] == '0') { // Fill
             from = '0';
             to = color;
         } else {
             return false;
         }
-        while (fields[row][col].getModifier() == from && row < rows && col < cols) {
-            fields[row][col].setModifier(to);
+        while (row < rows && col < cols && modifiers[row][col] == from) {
+            modifiers[row][col] = to;
             row += dr;
             col += rc;
         }
@@ -251,8 +346,8 @@ struct Board {
         if (row >= rows || col >= cols) {
             return false;
         }
-        if (fields[row][col].getModifier() == from) {
-            fields[row][col].setModifier(to);
+        if (modifiers[row][col] == from) {
+            modifiers[row][col] = to;
             flood(row + 1, col, from, to);
             flood(row - 1, col, from, to);
             flood(row, col + 1, from, to);
@@ -268,18 +363,19 @@ struct Board {
         moveSequence.moves[moveSequence.n].row = row;
         moveSequence.n++;
 
-        Field &field = fields[row][col];
-        if (field.getModifier() == 'U') {
-            return fill(-1, 0, row, col, field.getColor());
-        } else if (field.getModifier() == 'D') {
-            return fill(1, 0, row, col, field.getColor());
-        } else if (field.getModifier() == 'L') {
-            return fill(0, -1, row, col, field.getColor());
-        } else if (field.getModifier() == 'R') {
-            return fill(0, 1, row, col, field.getColor());
-        } else if (field.getModifier() == 'F') {
+        char &modifier = modifiers[row][col];
+        char color = level->colors[row][col];
+        if (modifier == 'U') {
+            return fill(-1, 0, row, col, color);
+        } else if (modifier == 'D') {
+            return fill(1, 0, row, col, color);
+        } else if (modifier == 'L') {
+            return fill(0, -1, row, col, color);
+        } else if (modifier == 'R') {
+            return fill(0, 1, row, col, color);
+        } else if (modifier == 'F') {
             char from = '0';
-            char to = field.getColor();
+            char to = color;
             bool somethingFilled = false;
             somethingFilled |= flood(row + 1, col, from, to);
             somethingFilled |= flood(row - 1, col, from, to);
@@ -287,7 +383,7 @@ struct Board {
             somethingFilled |= flood(row, col - 1, from, to);
 
             if (!somethingFilled) {
-                from = field.getColor();
+                from = color;
                 to = '0';
                 somethingFilled |= flood(row + 1, col, from, to);
                 somethingFilled |= flood(row - 1, col, from, to);
@@ -295,34 +391,33 @@ struct Board {
                 somethingFilled |= flood(row, col - 1, from, to);
             }
             return somethingFilled;
-        } else if (field.getModifier() == 'B') {
-            char color = field.getColor();
+        } else if (modifier == 'B') {
             for (size_t dr = 0; dr < 3; dr++) {
                 for (size_t dc = 0; dc < 3; dc++) {
                     if (row - 1 + dr < rows && col - 1 + dc < cols) {
-                        Field &f = fields[row - 1 + dr][col - 1 + dc];
-                        if (f.getModifier() != 'X') {
-                            f.setModifier(color);
+                        char &m = modifiers[row - 1 + dr][col - 1 + dc];
+                        if (m != 'X') {
+                            m = color;
                         }
                     }
                 }
             }
             return true;
-        } else if (field.getModifier() == 'w') {
-            fill(-1, 0, row, col, field.getColor());
-            field.setModifier('x');
+        } else if (modifier == 'w') {
+            fill(-1, 0, row, col, color);
+            modifier = 'x';
             return true;
-        } else if (field.getModifier() == 's') {
-            fill(1, 0, row, col, field.getColor());
-            field.setModifier('a');
+        } else if (modifier == 's') {
+            fill(1, 0, row, col, color);
+            modifier = 'a';
             return true;
-        } else if (field.getModifier() == 'a') {
-            fill(0, -1, row, col, field.getColor());
-            field.setModifier('w');
+        } else if (modifier == 'a') {
+            fill(0, -1, row, col, color);
+            modifier = 'w';
             return true;
-        } else if (field.getModifier() == 'x') {
-            fill(0, 1, row, col, field.getColor());
-            field.setModifier('s');
+        } else if (modifier == 'x') {
+            fill(0, 1, row, col, color);
+            modifier = 's';
             return true;
         } else {
             std::cout<<"Unknown modifier"<<std::endl;
@@ -331,9 +426,12 @@ struct Board {
     }
 
     [[nodiscard]] bool isSolved() const {
-        for (auto & row : fields) {
-            for (auto & field : row) {
-                if (!field.isCorrect()) {
+        if (level == nullptr) {
+            return false;
+        }
+        for (size_t row = 0; row < rows; row++) {
+            for (size_t col = 0; col < cols; col++) {
+                if (!Field::isCorrect(level->colors[row][col], modifiers[row][col])) {
                     return false;
                 }
             }
@@ -347,93 +445,5 @@ struct Board {
 
     bool click(const Position position) {
         return click(position.row, position.col);
-    }
-
-    using ReachabilityArray = std::vector<Position>[rows][cols];
-
-    static void fillReachability(int dr, int rc, const size_t row, const size_t col, char color, Board &b,
-                                 ReachabilityArray &reachableFrom) {
-        size_t r = row + dr;
-        size_t c = col + rc;
-        while (r < rows && c < cols) {
-            if (b.fields[r][c].getColor() == color) {
-                reachableFrom[r][c].emplace_back(row, col);
-            }
-            r += dr;
-            c += rc;
-        }
-    }
-
-    static Board from(std::string color, std::string modifier) {
-        Board initialBoard;
-        bool smallBoard = color.length() == 5 * 6;
-        for (size_t row = 0; row < rows; row++) {
-            for (size_t col = 0; col < cols; col++) {
-                Field &field = initialBoard.fields[row][col];
-                if (smallBoard && (row >= 6 || col >= 5)) {
-                    field.setColor('0');
-                    field.setModifier('X');
-                    continue;
-                }
-                field.setColor(color[row * (smallBoard ? 5 : 6) + col]);
-                field.setModifier(modifier[row * (smallBoard ? 5 : 6) + col]);
-            }
-        }
-
-        // Fill reachability
-        ReachabilityArray reachableFrom;
-        for (size_t row = 0; row < rows; row++) {
-            for (size_t col = 0; col < cols; col++) {
-                Field &field = initialBoard.fields[row][col];
-                if (!field.isClickable()) {
-                    continue;
-                }
-
-                if (field.getModifier() == 'U') {
-                    fillReachability(-1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
-                } else if (field.getModifier() == 'D') {
-                    fillReachability(1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
-                } else if (field.getModifier() == 'L') {
-                    fillReachability(0, -1, row, col, field.getColor(), initialBoard, reachableFrom);
-                } else if (field.getModifier() == 'R') {
-                    fillReachability(0, 1, row, col, field.getColor(), initialBoard, reachableFrom);
-                } else if (field.getModifier() == 'F') {
-                    for (size_t r = 0; r < rows; r++) {
-                        for (size_t c = 0; c < cols; c++) {
-                            if (initialBoard.fields[r][c].getColor() == field.getColor()) {
-                                reachableFrom[r][c].emplace_back(row, col);
-                            }
-                        }
-                    }
-                } else if (field.getModifier() == 'B') {
-                    initialBoard.hasBombs = true;
-                    for (size_t dr = 0; dr < 3; dr++) {
-                        for (size_t dc = 0; dc < 3; dc++) {
-                            if (row - 1 + dr <= rows && col - 1 + dc <= cols) {
-                                if (initialBoard.fields[row - 1 + dr][col - 1 + dc].getColor() == field.getColor()) {
-                                    reachableFrom[row - 1 + dr][col - 1 + dc].emplace_back(row, col);
-                                }
-                            }
-                        }
-                    }
-                } else if (field.getModifier() == 'w' || field.getModifier() == 's'
-                           || field.getModifier() == 'a' || field.getModifier() == 'x') {
-                    fillReachability(-1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
-                    fillReachability(1, 0, row, col, field.getColor(), initialBoard, reachableFrom);
-                    fillReachability(0, -1, row, col, field.getColor(), initialBoard, reachableFrom);
-                    fillReachability(0, 1, row, col, field.getColor(), initialBoard, reachableFrom);
-                } else {
-                    std::cout << "Unknown modifier" << std::endl;
-                }
-            }
-        }
-        for (size_t row = 0; row < rows; row++) {
-            for (size_t col = 0; col < cols; col++) {
-                if (reachableFrom[row][col].size() == 1) {
-                    initialBoard.fields[row][col].onlyReachableFrom = reachableFrom[row][col].front();
-                }
-            }
-        }
-        return initialBoard;
     }
 };

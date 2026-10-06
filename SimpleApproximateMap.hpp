@@ -6,7 +6,7 @@ template<typename V>
 class SimpleApproximateMap {
         using key_t = uint64_t;
         using epoch_t = uint32_t;
-        static constexpr size_t SIZE = 1e9;
+        static constexpr size_t SIZE = 8e8;
         std::vector<std::tuple<key_t, epoch_t, V>> map;
         size_t epoch = 1000;
     public:

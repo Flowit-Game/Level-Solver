@@ -28,7 +28,8 @@ int main(int argc, char** argv) {
             std::cout<<"# Has solution"<<std::endl;
             //continue;
         }
-        Board board = Board::from(color, modifier);
+        Level level = Level::from(color, modifier);
+        Board board(level);
 
         //Board solvedBoard = solveBFS(levelNr, board);
         Board solvedBoard = solveBranchAndBound(levelNr, board);

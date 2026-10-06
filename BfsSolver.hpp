@@ -21,7 +21,7 @@ Board solveBFS(size_t levelNr, Board initialBoard) {
 
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
-                if (!board.fields[row][col].isClickable()) {
+                if (!board.isClickable(row, col)) {
                     continue;
                 }
                 Board newBoard = board;
