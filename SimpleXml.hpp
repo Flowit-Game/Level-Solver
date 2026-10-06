@@ -6,8 +6,19 @@
 class SimpleXml {
     public:
         static void skipWhitespace(std::string &xml, size_t &pos) {
-            while (xml[pos] == ' ' || xml[pos] == '\n') {
-                pos++;
+            while (true) {
+                while (xml[pos] == ' ' || xml[pos] == '\n') {
+                    pos++;
+                }
+                if (xml.compare(pos, 4, "<!--") != 0) {
+                    return;
+                }
+                size_t end = xml.find("-->", pos + 4);
+                if (end == std::string::npos) {
+                    std::cout << "Unterminated comment" << std::endl;
+                    exit(1);
+                }
+                pos = end + 3;
             }
         }
 
@@ -48,14 +59,13 @@ class SimpleXml {
             consume('"', xml, pos);
             skipWhitespace(xml, pos);
             bool hasSolution = false;
-            if (xml[pos] == 's') {
-                consume("solution=\"", xml, pos);
-                skipToQuote(xml, pos);
-                skipWhitespace(xml, pos);
-                hasSolution = true;
-            }
-            if (xml[pos] == 'a') {
-                consume("author=\"", xml, pos);
+            while (xml[pos] == 's' || xml[pos] == 'a') { // Optional, in any order
+                if (xml[pos] == 's') {
+                    consume("solution=\"", xml, pos);
+                    hasSolution = true;
+                } else {
+                    consume("author=\"", xml, pos);
+                }
                 skipToQuote(xml, pos);
                 skipWhitespace(xml, pos);
             }
