@@ -33,32 +33,9 @@ size_t minStepsNeeded(const Board &board) {
                 size_t neededR = reachableFrom.row;
                 size_t neededC = reachableFrom.col;
 
-                if (Field::isRotatingArrow(board.modifiers[neededR][neededC])) {
-                    char direction = board.modifiers[neededR][neededC];
-                    if (row == neededR && col < neededC) { // left
-                        if (direction == 'w') clicksNeeded = 4;
-                        if (direction == 'x') clicksNeeded = 3;
-                        if (direction == 's') clicksNeeded = 2;
-                        if (direction == 'a') clicksNeeded = 1;
-                    } else if (row == neededR && col > neededC) { // right
-                        if (direction == 'w') clicksNeeded = 2;
-                        if (direction == 'x') clicksNeeded = 1;
-                        if (direction == 's') clicksNeeded = 4;
-                        if (direction == 'a') clicksNeeded = 3;
-                    } else if (col == neededC && row < neededR) { // above
-                        if (direction == 'w') clicksNeeded = 1;
-                        if (direction == 'x') clicksNeeded = 4;
-                        if (direction == 's') clicksNeeded = 3;
-                        if (direction == 'a') clicksNeeded = 2;
-                    } else if (col == neededC && row > neededR) { // below
-                        if (direction == 'w') clicksNeeded = 3;
-                        if (direction == 'x') clicksNeeded = 2;
-                        if (direction == 's') clicksNeeded = 1;
-                        if (direction == 'a') clicksNeeded = 4;
-                    } else {
-                        std::cout<<"Unknown rotating arrow"<<std::endl;
-                        exit(1);
-                    }
+                int rotation = Field::rotation(board.modifiers[neededR][neededC]);
+                if (rotation >= 0) {
+                    clicksNeeded = (level.rotationTowards[row][col] - rotation + 4) % 4 + 1;
                 }
 
                 if (positionsNeeded[neededR][neededC] < clicksNeeded) {
@@ -167,9 +144,10 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
     if (clickables.empty()) {
         return;
     }
-    size_t offset = hash % clickables.size();
+    size_t index = hash % clickables.size();
     for (size_t i = 0; i < clickables.size(); i++) {
-        Position position = clickables[(i + offset) % clickables.size()];
+        Position position = clickables[index];
+        index = (index + 1 == clickables.size()) ? 0 : index + 1;
         if (!board.isClickable(position.row, position.col)) {
             continue; // Destroyed by a bomb
         }

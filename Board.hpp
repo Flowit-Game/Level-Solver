@@ -69,11 +69,37 @@ struct Field {
     }
 
     static bool isColor(char c) {
-        return c == 'r' || c == 'g' || c == 'b' || c == 'o' || c == 'd';
+        static constexpr std::array<bool, 256> table = [] {
+            std::array<bool, 256> table = {};
+            table['r'] = table['g'] = table['b'] = table['o'] = table['d'] = true;
+            return table;
+        }();
+        return table[static_cast<unsigned char>(c)];
+    }
+
+    // Rotating arrows turn w -> x -> s -> a -> w (up, right, down, left). -1 if not a rotating arrow.
+    static int rotation(char m) {
+        static constexpr std::array<int8_t, 256> table = [] {
+            std::array<int8_t, 256> table = {};
+            table.fill(-1);
+            table['w'] = 0;
+            table['x'] = 1;
+            table['s'] = 2;
+            table['a'] = 3;
+            return table;
+        }();
+        return table[static_cast<unsigned char>(m)];
     }
 
     static size_t colorMPHF(char c) {
-        return c % 6;
+        static constexpr std::array<uint8_t, 256> table = [] {
+            std::array<uint8_t, 256> table = {};
+            for (char c : {'r', 'g', 'b', 'o', 'd'}) {
+                table[c] = c % 6;
+            }
+            return table;
+        }();
+        return table[static_cast<unsigned char>(c)];
     }
 };
 
@@ -98,6 +124,7 @@ struct Level {
     char colors[rows][cols];
     char initialModifiers[rows][cols];
     Position onlyReachableFrom[rows][cols];
+    uint8_t rotationTowards[rows][cols] = {};
     std::vector<Position> clickables;
     bool hasBombs = false;
 
@@ -192,7 +219,17 @@ struct Level {
         for (size_t row = 0; row < rows; row++) {
             for (size_t col = 0; col < cols; col++) {
                 if (reachableFrom[row][col].size() == 1) {
-                    level.onlyReachableFrom[row][col] = reachableFrom[row][col].front();
+                    Position source = reachableFrom[row][col].front();
+                    level.onlyReachableFrom[row][col] = source;
+                    if (row < source.row) {
+                        level.rotationTowards[row][col] = 0;
+                    } else if (col > source.col) {
+                        level.rotationTowards[row][col] = 1;
+                    } else if (row > source.row) {
+                        level.rotationTowards[row][col] = 2;
+                    } else {
+                        level.rotationTowards[row][col] = 3;
+                    }
                 }
                 if (Field::isClickable(level.initialModifiers[row][col])) {
                     level.clickables.emplace_back(row, col);
