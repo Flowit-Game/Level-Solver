@@ -163,20 +163,20 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
         return;
     }
 
-    size_t rowOffset = hash % rows;
-    size_t colOffset = (hash >> 10) % cols;
-    for (size_t row = 0; row < rows; row++) {
-        for (size_t col = 0; col < cols; col++) {
-            size_t permutedRow = (row + rowOffset) % rows;
-            size_t permutedCol = (col + colOffset) % cols;
-            if (!board.isClickable(permutedRow, permutedCol)) {
-                continue;
-            }
-            Board newBoard = board;
-            bool somethingChanged = newBoard.click(permutedRow, permutedCol);
-            if (somethingChanged) {
-                branch(levelNr, newBoard, bound, best, initialBoard, minimalMoves);
-            }
+    const std::vector<Position> &clickables = board.level->clickables;
+    if (clickables.empty()) {
+        return;
+    }
+    size_t offset = hash % clickables.size();
+    for (size_t i = 0; i < clickables.size(); i++) {
+        Position position = clickables[(i + offset) % clickables.size()];
+        if (!board.isClickable(position.row, position.col)) {
+            continue; // Destroyed by a bomb
+        }
+        Board newBoard = board;
+        bool somethingChanged = newBoard.click(position);
+        if (somethingChanged) {
+            branch(levelNr, newBoard, bound, best, initialBoard, minimalMoves);
         }
     }
 }

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <array>
 #include "MurmurHash64.hpp"
 
 constexpr size_t maxSteps = 60;
@@ -37,16 +38,24 @@ struct Position {
 static constexpr Position POSITION_NONE(15, 15);
 
 struct Field {
-    static bool isClickable(char m) {
-        return isStaticArrow(m) || isRotatingArrow(m) || m == 'F' || m == 'B';
-    }
-
-    static bool isStaticArrow(char m) {
+    static constexpr bool isStaticArrow(char m) {
         return m == 'L' || m == 'R' || m == 'U' || m == 'D';
     }
 
-    static bool isRotatingArrow(char m) {
+    static constexpr bool isRotatingArrow(char m) {
         return m == 'w' || m == 'x' || m == 'a' || m == 's';
+    }
+
+    static bool isClickable(char m) {
+        static constexpr std::array<bool, 256> table = [] {
+            std::array<bool, 256> table = {};
+            for (size_t i = 0; i < table.size(); i++) {
+                char m = static_cast<char>(i);
+                table[i] = isStaticArrow(m) || isRotatingArrow(m) || m == 'F' || m == 'B';
+            }
+            return table;
+        }();
+        return table[static_cast<unsigned char>(m)];
     }
 
     static bool isCorrect(char color, char modifier) {
@@ -89,6 +98,7 @@ struct Level {
     char colors[rows][cols];
     char initialModifiers[rows][cols];
     Position onlyReachableFrom[rows][cols];
+    std::vector<Position> clickables;
     bool hasBombs = false;
 
     Level() {
@@ -183,6 +193,9 @@ struct Level {
             for (size_t col = 0; col < cols; col++) {
                 if (reachableFrom[row][col].size() == 1) {
                     level.onlyReachableFrom[row][col] = reachableFrom[row][col].front();
+                }
+                if (Field::isClickable(level.initialModifiers[row][col])) {
+                    level.clickables.emplace_back(row, col);
                 }
             }
         }
