@@ -64,12 +64,11 @@ size_t minStepsNeeded(const Board &board) {
     return missing;
 }
 
-void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
+void branch(size_t levelNr, const Board &board, uint64_t hash, size_t &bound, Board &best,
             const Board &initialBoard, SimpleApproximateMap<uint32_t> &minimalMoves) {
     if (board.moveSequence.n >= bound) {
         return; // Give up
     }
-    uint64_t hash = board.hash();
     auto existing = minimalMoves.get(hash);
     if (existing.value == nullptr) {
         minimalMoves.insert(hash, board.moveSequence.n);
@@ -144,6 +143,12 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
     if (clickables.empty()) {
         return;
     }
+    // Generate all children first and prefetch their map entries, then recurse.
+    // Children of a node at depth n live in slot n, so recursing never overwrites waiting siblings.
+    static std::vector<Board> childBuffer((maxSteps + 1) * rows * cols);
+    Board *children = &childBuffer[board.moveSequence.n * rows * cols];
+    uint64_t childHashes[rows * cols];
+    size_t numChildren = 0;
     size_t index = hash % clickables.size();
     for (size_t i = 0; i < clickables.size(); i++) {
         Position position = clickables[index];
@@ -151,11 +156,17 @@ void branch(size_t levelNr, const Board &board, size_t &bound, Board &best,
         if (!board.isClickable(position.row, position.col)) {
             continue; // Destroyed by a bomb
         }
-        Board newBoard = board;
-        bool somethingChanged = newBoard.click(position);
+        Board &child = children[numChildren];
+        child = board;
+        bool somethingChanged = child.click(position);
         if (somethingChanged) {
-            branch(levelNr, newBoard, bound, best, initialBoard, minimalMoves);
+            childHashes[numChildren] = child.hash();
+            minimalMoves.prefetch(childHashes[numChildren]);
+            numChildren++;
         }
+    }
+    for (size_t i = 0; i < numChildren; i++) {
+        branch(levelNr, children[i], childHashes[i], bound, best, initialBoard, minimalMoves);
     }
 }
 
@@ -175,7 +186,7 @@ Board solveBranchAndBound(size_t levelNr, Board initialBoard) {
         size_t bound = iterativeBound + 1;
         minimalMoves.nextEpoch();
         Board best = {};
-        branch(levelNr, initialBoard, bound, best, initialBoard, minimalMoves);
+        branch(levelNr, initialBoard, initialBoard.hash(), bound, best, initialBoard, minimalMoves);
         if (best.isSolved()) {
             return best;
         }

@@ -14,6 +14,10 @@ class SimpleApproximateMap {
             map.resize(SIZE);
         }
 
+        void prefetch(key_t key) {
+            __builtin_prefetch(&map[key % SIZE]);
+        }
+
         void insert(key_t key, V value) {
             map[key % SIZE] = std::make_tuple(key, epoch, value);
         }
